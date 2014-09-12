@@ -18,10 +18,9 @@ var Scroller;
 	var NOOP = function(){};
 
 	/**
-	 * A pure logic 'component' for 'virtual' scrolling/zooming.
+	 * A pure logic 'component' for 'virtual' scrolling.
 	 */
 	Scroller = function(callback, options) {
-
 		this.__callback = callback;
 
 		this.options = {
@@ -32,10 +31,10 @@ var Scroller;
 			/** Enable scrolling on y-axis */
 			scrollingY: true,
 
-			/** Enable animations for deceleration, snap back, zooming and scrolling */
+			/** Enable animations for deceleration, snap back and scrolling */
 			animating: true,
 
-			/** duration for animations triggered by scrollTo/zoomTo */
+			/** duration for animations triggered by scrollTo */
 			animationDuration: 250,
 
 			/** Enable bouncing (content can be slowly moved outside and jumps back after releasing) */
@@ -44,21 +43,6 @@ var Scroller;
 			/** Enable locking to the main axis if user moves only slightly on one of them at start */
 			locking: true,
 
-			/** Enable pagination mode (switching between full page content panes) */
-			paging: false,
-
-			/** Enable snapping of content to a configured pixel grid */
-			snapping: false,
-
-			/** Enable zooming of content via API, fingers and mouse wheel */
-			zooming: false,
-
-			/** Minimum zoom level */
-			minZoom: 0.5,
-
-			/** Maximum zoom level */
-			maxZoom: 3,
-
 			/** Multiply or decrease scrolling speed **/
 			speedMultiplier: 1,
 
@@ -66,7 +50,7 @@ var Scroller;
 				provided that another scrolling action has not begun. Used to know
 				when to fade out a scrollbar. */
 			scrollingComplete: NOOP,
-			
+
 			/** This configures the amount of change applied to deceleration when reaching boundaries  **/
             penetrationDeceleration : 0.03,
 
@@ -78,7 +62,6 @@ var Scroller;
 		for (var key in options) {
 			this.options[key] = options[key];
 		}
-
 	};
 
 
@@ -121,11 +104,6 @@ var Scroller;
 		/** {Boolean} Whether a deceleration animation went to completion. */
 		__didDecelerationComplete: false,
 
-		/**
-		 * {Boolean} Whether a gesture zoom/rotate event is in progress. Activates when
-		 * a gesturestart event happens. This has higher priority than dragging.
-		 */
-		__isGesturing: false,
 
 		/**
 		 * {Boolean} Whether the user has moved by such a distance that we have enabled
@@ -171,12 +149,6 @@ var Scroller;
 		/** {Integer} Outer height of content */
 		__contentHeight: 0,
 
-		/** {Integer} Snapping width for content */
-		__snapWidth: 100,
-
-		/** {Integer} Snapping height for content */
-		__snapHeight: 100,
-
 		/** {Integer} Height to assign to refresh area */
 		__refreshHeight: null,
 
@@ -191,9 +163,6 @@ var Scroller;
 
 		/** {Function} Callback to execute to start the actual refresh. Call {@link #refreshFinish} when done */
 		__refreshStart: null,
-
-		/** {Number} Zoom level */
-		__zoomLevel: 1,
 
 		/** {Number} Scroll position on x-axis */
 		__scrollLeft: 0,
@@ -212,9 +181,6 @@ var Scroller;
 
 		/* {Number} Scheduled top position (final position when animating) */
 		__scheduledTop: 0,
-
-		/* {Number} Scheduled zoom level (final scale when animating) */
-		__scheduledZoom: 0,
 
 
 
@@ -327,78 +293,9 @@ var Scroller;
 
 
 		/**
-		 * Configures the snapping (when snapping is active)
+		 * Returns the scroll position
 		 *
-		 * @param width {Integer} Snapping width
-		 * @param height {Integer} Snapping height
-		 */
-		setSnapSize: function(width, height) {
-
-			var self = this;
-
-			self.__snapWidth = width;
-			self.__snapHeight = height;
-
-		},
-
-
-		/**
-		 * Activates pull-to-refresh. A special zone on the top of the list to start a list refresh whenever
-		 * the user event is released during visibility of this zone. This was introduced by some apps on iOS like
-		 * the official Twitter client.
-		 *
-		 * @param height {Integer} Height of pull-to-refresh zone on top of rendered list
-		 * @param activateCallback {Function} Callback to execute on activation. This is for signalling the user about a refresh is about to happen when he release.
-		 * @param deactivateCallback {Function} Callback to execute on deactivation. This is for signalling the user about the refresh being cancelled.
-		 * @param startCallback {Function} Callback to execute to start the real async refresh action. Call {@link #finishPullToRefresh} after finish of refresh.
-		 */
-		activatePullToRefresh: function(height, activateCallback, deactivateCallback, startCallback) {
-
-			var self = this;
-
-			self.__refreshHeight = height;
-			self.__refreshActivate = activateCallback;
-			self.__refreshDeactivate = deactivateCallback;
-			self.__refreshStart = startCallback;
-
-		},
-
-
-		/**
-		 * Starts pull-to-refresh manually.
-		 */
-		triggerPullToRefresh: function() {
-			// Use publish instead of scrollTo to allow scrolling to out of boundary position
-			// We don't need to normalize scrollLeft, zoomLevel, etc. here because we only y-scrolling when pull-to-refresh is enabled
-			this.__publish(this.__scrollLeft, -this.__refreshHeight, this.__zoomLevel, true);
-
-			if (this.__refreshStart) {
-				this.__refreshStart();
-			}
-		},
-
-
-		/**
-		 * Signalizes that pull-to-refresh is finished.
-		 */
-		finishPullToRefresh: function() {
-
-			var self = this;
-
-			self.__refreshActive = false;
-			if (self.__refreshDeactivate) {
-				self.__refreshDeactivate();
-			}
-
-			self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
-
-		},
-
-
-		/**
-		 * Returns the scroll position and zooming values
-		 *
-		 * @return {Map} `left` and `top` scroll position and `zoom` level
+		 * @return {Map} `left` and `top` scroll position
 		 */
 		getValues: function() {
 
@@ -406,8 +303,7 @@ var Scroller;
 
 			return {
 				left: self.__scrollLeft,
-				top: self.__scrollTop,
-				zoom: self.__zoomLevel
+				top: self.__scrollTop
 			};
 
 		},
@@ -431,102 +327,13 @@ var Scroller;
 
 
 		/**
-		 * Zooms to the given level. Supports optional animation. Zooms
-		 * the center when no coordinates are given.
-		 *
-		 * @param level {Number} Level to zoom to
-		 * @param animate {Boolean ? false} Whether to use animation
-		 * @param originLeft {Number ? null} Zoom in at given left coordinate
-		 * @param originTop {Number ? null} Zoom in at given top coordinate
-		 * @param callback {Function ? null} A callback that gets fired when the zoom is complete.
-		 */
-		zoomTo: function(level, animate, originLeft, originTop, callback) {
-
-			var self = this;
-
-			if (!self.options.zooming) {
-				throw new Error("Zooming is not enabled!");
-			}
-
-			// Add callback if exists
-			if(callback) {
-				self.__zoomComplete = callback;
-			}
-
-			// Stop deceleration
-			if (self.__isDecelerating) {
-				core.effect.Animate.stop(self.__isDecelerating);
-				self.__isDecelerating = false;
-			}
-
-			var oldLevel = self.__zoomLevel;
-
-			// Normalize input origin to center of viewport if not defined
-			if (originLeft == null) {
-				originLeft = self.__clientWidth / 2;
-			}
-
-			if (originTop == null) {
-				originTop = self.__clientHeight / 2;
-			}
-
-			// Limit level according to configuration
-			level = Math.max(Math.min(level, self.options.maxZoom), self.options.minZoom);
-
-			// Recompute maximum values while temporary tweaking maximum scroll ranges
-			self.__computeScrollMax(level);
-
-			// Recompute left and top coordinates based on new zoom level
-			var left = ((originLeft + self.__scrollLeft) * level / oldLevel) - originLeft;
-			var top = ((originTop + self.__scrollTop) * level / oldLevel) - originTop;
-
-			// Limit x-axis
-			if (left > self.__maxScrollLeft) {
-				left = self.__maxScrollLeft;
-			} else if (left < 0) {
-				left = 0;
-			}
-
-			// Limit y-axis
-			if (top > self.__maxScrollTop) {
-				top = self.__maxScrollTop;
-			} else if (top < 0) {
-				top = 0;
-			}
-
-			// Push values out
-			self.__publish(left, top, level, animate);
-
-		},
-
-
-		/**
-		 * Zooms the content by the given factor.
-		 *
-		 * @param factor {Number} Zoom by given factor
-		 * @param animate {Boolean ? false} Whether to use animation
-		 * @param originLeft {Number ? 0} Zoom in at given left coordinate
-		 * @param originTop {Number ? 0} Zoom in at given top coordinate
-		 * @param callback {Function ? null} A callback that gets fired when the zoom is complete.
-		 */
-		zoomBy: function(factor, animate, originLeft, originTop, callback) {
-
-			var self = this;
-
-			self.zoomTo(self.__zoomLevel * factor, animate, originLeft, originTop, callback);
-
-		},
-
-
-		/**
 		 * Scrolls to the given position. Respect limitations and snapping automatically.
 		 *
 		 * @param left {Number?null} Horizontal scroll position, keeps current if value is <code>null</code>
 		 * @param top {Number?null} Vertical scroll position, keeps current if value is <code>null</code>
 		 * @param animate {Boolean?false} Whether the scrolling should happen using an animation
-		 * @param zoom {Number?null} Zoom level to go to
 		 */
-		scrollTo: function(left, top, animate, zoom) {
+		scrollTo: function(left, top, animate) {
 
 			var self = this;
 
@@ -534,53 +341,17 @@ var Scroller;
 			if (self.__isDecelerating) {
 				core.effect.Animate.stop(self.__isDecelerating);
 				self.__isDecelerating = false;
-			}
-
-			// Correct coordinates based on new zoom level
-			if (zoom != null && zoom !== self.__zoomLevel) {
-
-				if (!self.options.zooming) {
-					throw new Error("Zooming is not enabled!");
-				}
-
-				left *= zoom;
-				top *= zoom;
-
-				// Recompute maximum values while temporary tweaking maximum scroll ranges
-				self.__computeScrollMax(zoom);
-
-			} else {
-
-				// Keep zoom when not defined
-				zoom = self.__zoomLevel;
-
 			}
 
 			if (!self.options.scrollingX) {
 
 				left = self.__scrollLeft;
 
-			} else {
-
-				if (self.options.paging) {
-					left = Math.round(left / self.__clientWidth) * self.__clientWidth;
-				} else if (self.options.snapping) {
-					left = Math.round(left / self.__snapWidth) * self.__snapWidth;
-				}
-
 			}
 
 			if (!self.options.scrollingY) {
 
 				top = self.__scrollTop;
-
-			} else {
-
-				if (self.options.paging) {
-					top = Math.round(top / self.__clientHeight) * self.__clientHeight;
-				} else if (self.options.snapping) {
-					top = Math.round(top / self.__snapHeight) * self.__snapHeight;
-				}
 
 			}
 
@@ -595,7 +366,7 @@ var Scroller;
 			}
 
 			// Publish new values
-			self.__publish(left, top, zoom, animate);
+			self.__publish(left, top, animate);
 
 		},
 
@@ -625,18 +396,6 @@ var Scroller;
 			EVENT CALLBACKS
 		---------------------------------------------------------------------------
 		*/
-
-		/**
-		 * Mouse wheel handler for zooming support
-		 */
-		doMouseZoom: function(wheelDelta, timeStamp, pageX, pageY) {
-
-			var self = this;
-			var change = wheelDelta > 0 ? 0.97 : 1.03;
-
-			return self.zoomTo(self.__zoomLevel * change, false, pageX - self.__clientLeft, pageY - self.__clientTop);
-
-		},
 
 
 		/**
@@ -689,9 +448,6 @@ var Scroller;
 			// Store initial positions
 			self.__initialTouchLeft = currentTouchLeft;
 			self.__initialTouchTop = currentTouchTop;
-
-			// Store current zoom level
-			self.__zoomLevelStart = self.__zoomLevel;
 
 			// Store initial touch positions
 			self.__lastTouchLeft = currentTouchLeft;
@@ -770,38 +526,9 @@ var Scroller;
 				var moveX = currentTouchLeft - self.__lastTouchLeft;
 				var moveY = currentTouchTop - self.__lastTouchTop;
 
-				// Read previous scroll position and zooming
+				// Read previous scroll position
 				var scrollLeft = self.__scrollLeft;
 				var scrollTop = self.__scrollTop;
-				var level = self.__zoomLevel;
-
-				// Work with scaling
-				if (scale != null && self.options.zooming) {
-
-					var oldLevel = level;
-
-					// Recompute level based on previous scale and new scale
-					level = level / self.__lastScale * scale;
-
-					// Limit level according to configuration
-					level = Math.max(Math.min(level, self.options.maxZoom), self.options.minZoom);
-
-					// Only do further compution when change happened
-					if (oldLevel !== level) {
-
-						// Compute relative event position to container
-						var currentTouchLeftRel = currentTouchLeft - self.__clientLeft;
-						var currentTouchTopRel = currentTouchTop - self.__clientTop;
-
-						// Recompute left and top coordinates based on new zoom level
-						scrollLeft = ((currentTouchLeftRel + scrollLeft) * level / oldLevel) - currentTouchLeftRel;
-						scrollTop = ((currentTouchTopRel + scrollTop) * level / oldLevel) - currentTouchTopRel;
-
-						// Recompute max scroll values
-						self.__computeScrollMax(level);
-
-					}
-				}
 
 				if (self.__enableScrollX) {
 
@@ -881,7 +608,7 @@ var Scroller;
 				positions.push(scrollLeft, scrollTop, timeStamp);
 
 				// Sync scroll position
-				self.__publish(scrollLeft, scrollTop, level);
+				self.__publish(scrollLeft, scrollTop);
 
 			// Otherwise figure out whether we are switching into dragging mode now.
 			} else {
@@ -971,7 +698,7 @@ var Scroller;
 						self.__decelerationVelocityY = movedTop / timeOffset * (1000 / 60);
 
 						// How much velocity is required to start the deceleration
-						var minVelocityToStartDeceleration = self.options.paging || self.options.snapping ? 4 : 1;
+						var minVelocityToStartDeceleration = 1;
 
 						// Verify that we have enough velocity to start deceleration
 						if (Math.abs(self.__decelerationVelocityX) > minVelocityToStartDeceleration || Math.abs(self.__decelerationVelocityY) > minVelocityToStartDeceleration) {
@@ -999,8 +726,8 @@ var Scroller;
 				if (self.__refreshActive && self.__refreshStart) {
 
 					// Use publish instead of scrollTo to allow scrolling to out of boundary position
-					// We don't need to normalize scrollLeft, zoomLevel, etc. here because we only y-scrolling when pull-to-refresh is enabled
-					self.__publish(self.__scrollLeft, -self.__refreshHeight, self.__zoomLevel, true);
+					// We don't need to normalize scrollLeft, etc. here because we only y-scrolling when pull-to-refresh is enabled
+					self.__publish(self.__scrollLeft, -self.__refreshHeight, true);
 
 					if (self.__refreshStart) {
 						self.__refreshStart();
@@ -1011,7 +738,7 @@ var Scroller;
 					if (self.__interruptedAnimation || self.__isDragging) {
 						self.options.scrollingComplete();
 					}
-					self.scrollTo(self.__scrollLeft, self.__scrollTop, true, self.__zoomLevel);
+					self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
 
 					// Directly signalize deactivation (nothing todo on refresh?)
 					if (self.__refreshActive) {
@@ -1045,7 +772,7 @@ var Scroller;
 		 * @param top {Number} Top scroll position
 		 * @param animate {Boolean?false} Whether animation should be used to move to the new coordinates
 		 */
-		__publish: function(left, top, zoom, animate) {
+		__publish: function(left, top, animate) {
 
 			var self = this;
 
@@ -1058,18 +785,15 @@ var Scroller;
 
 			if (animate && self.options.animating) {
 
-				// Keep scheduled positions for scrollBy/zoomBy functionality
+				// Keep scheduled positions for scrollBy functionality
 				self.__scheduledLeft = left;
 				self.__scheduledTop = top;
-				self.__scheduledZoom = zoom;
 
 				var oldLeft = self.__scrollLeft;
 				var oldTop = self.__scrollTop;
-				var oldZoom = self.__zoomLevel;
 
 				var diffLeft = left - oldLeft;
 				var diffTop = top - oldTop;
-				var diffZoom = zoom - oldZoom;
 
 				var step = function(percent, now, render) {
 
@@ -1077,11 +801,10 @@ var Scroller;
 
 						self.__scrollLeft = oldLeft + (diffLeft * percent);
 						self.__scrollTop = oldTop + (diffTop * percent);
-						self.__zoomLevel = oldZoom + (diffZoom * percent);
 
 						// Push values out
 						if (self.__callback) {
-							self.__callback(self.__scrollLeft, self.__scrollTop, self.__zoomLevel);
+							self.__callback(self.__scrollLeft, self.__scrollTop);
 						}
 
 					}
@@ -1095,16 +818,9 @@ var Scroller;
 					if (animationId === self.__isAnimating) {
 						self.__isAnimating = false;
 					}
+
 					if (self.__didDecelerationComplete || wasFinished) {
 						self.options.scrollingComplete();
-					}
-
-					if (self.options.zooming) {
-						self.__computeScrollMax();
-						if(self.__zoomComplete) {
-							self.__zoomComplete();
-							self.__zoomComplete = null;
-						}
 					}
 				};
 
@@ -1115,20 +831,10 @@ var Scroller;
 
 				self.__scheduledLeft = self.__scrollLeft = left;
 				self.__scheduledTop = self.__scrollTop = top;
-				self.__scheduledZoom = self.__zoomLevel = zoom;
 
 				// Push values out
 				if (self.__callback) {
-					self.__callback(left, top, zoom);
-				}
-
-				// Fix max scroll ranges
-				if (self.options.zooming) {
-					self.__computeScrollMax();
-					if(self.__zoomComplete) {
-						self.__zoomComplete();
-						self.__zoomComplete = null;
-					}
+					self.__callback(left, top);
 				}
 			}
 		},
@@ -1137,16 +843,12 @@ var Scroller;
 		/**
 		 * Recomputes scroll minimum values based on client dimensions and content dimensions.
 		 */
-		__computeScrollMax: function(zoomLevel) {
+		__computeScrollMax: function() {
 
 			var self = this;
 
-			if (zoomLevel == null) {
-				zoomLevel = self.__zoomLevel;
-			}
-
-			self.__maxScrollLeft = Math.max((self.__contentWidth * zoomLevel) - self.__clientWidth, 0);
-			self.__maxScrollTop = Math.max((self.__contentHeight * zoomLevel) - self.__clientHeight, 0);
+			self.__maxScrollLeft = Math.max(self.__contentWidth - self.__clientWidth, 0);
+			self.__maxScrollTop = Math.max(self.__contentHeight - self.__clientHeight, 0);
 
 		},
 
@@ -1166,28 +868,10 @@ var Scroller;
 
 			var self = this;
 
-			if (self.options.paging) {
-
-				var scrollLeft = Math.max(Math.min(self.__scrollLeft, self.__maxScrollLeft), 0);
-				var scrollTop = Math.max(Math.min(self.__scrollTop, self.__maxScrollTop), 0);
-				var clientWidth = self.__clientWidth;
-				var clientHeight = self.__clientHeight;
-
-				// We limit deceleration not to the min/max values of the allowed range, but to the size of the visible client area.
-				// Each page should have exactly the size of the client area.
-				self.__minDecelerationScrollLeft = Math.floor(scrollLeft / clientWidth) * clientWidth;
-				self.__minDecelerationScrollTop = Math.floor(scrollTop / clientHeight) * clientHeight;
-				self.__maxDecelerationScrollLeft = Math.ceil(scrollLeft / clientWidth) * clientWidth;
-				self.__maxDecelerationScrollTop = Math.ceil(scrollTop / clientHeight) * clientHeight;
-
-			} else {
-
-				self.__minDecelerationScrollLeft = 0;
-				self.__minDecelerationScrollTop = 0;
-				self.__maxDecelerationScrollLeft = self.__maxScrollLeft;
-				self.__maxDecelerationScrollTop = self.__maxScrollTop;
-
-			}
+			self.__minDecelerationScrollLeft = 0;
+			self.__minDecelerationScrollTop = 0;
+			self.__maxDecelerationScrollLeft = self.__maxScrollLeft;
+			self.__maxDecelerationScrollTop = self.__maxScrollTop;
 
 			// Wrap class method
 			var step = function(percent, now, render) {
@@ -1195,7 +879,7 @@ var Scroller;
 			};
 
 			// How much velocity is required to keep the deceleration running
-			var minVelocityToKeepDecelerating = self.options.snapping ? 4 : 0.1;
+			var minVelocityToKeepDecelerating = 0.1;
 
 			// Detect whether it's still worth to continue animating steps
 			// If we are already slow enough to not being user perceivable anymore, we stop the whole process here.
@@ -1214,7 +898,7 @@ var Scroller;
 				}
 
 				// Animate to grid when snapping is active, otherwise just fix out-of-boundary positions
-				self.scrollTo(self.__scrollLeft, self.__scrollTop, self.options.snapping);
+				self.scrollTo(self.__scrollLeft, self.__scrollTop);
 			};
 
 			// Start animation and switch on flag
@@ -1269,7 +953,7 @@ var Scroller;
 
 			if (render) {
 
-				self.__publish(scrollLeft, scrollTop, self.__zoomLevel);
+				self.__publish(scrollLeft, scrollTop);
 
 			} else {
 
@@ -1283,19 +967,13 @@ var Scroller;
 			// SLOW DOWN
 			//
 
-			// Slow down velocity on every iteration
-			if (!self.options.paging) {
+			// This is the factor applied to every iteration of the animation
+			// to slow down the process. This should emulate natural behavior where
+			// objects slow down when the initiator of the movement is removed
+			var frictionFactor = 0.95;
 
-				// This is the factor applied to every iteration of the animation
-				// to slow down the process. This should emulate natural behavior where
-				// objects slow down when the initiator of the movement is removed
-				var frictionFactor = 0.95;
-
-				self.__decelerationVelocityX *= frictionFactor;
-				self.__decelerationVelocityY *= frictionFactor;
-
-			}
-
+			self.__decelerationVelocityX *= frictionFactor;
+			self.__decelerationVelocityY *= frictionFactor;
 
 			//
 			// BOUNCING SUPPORT
@@ -1307,8 +985,8 @@ var Scroller;
 				var scrollOutsideY = 0;
 
 				// This configures the amount of change applied to deceleration/acceleration when reaching boundaries
-				var penetrationDeceleration = self.options.penetrationDeceleration; 
-				var penetrationAcceleration = self.options.penetrationAcceleration; 
+				var penetrationDeceleration = self.options.penetrationDeceleration;
+				var penetrationAcceleration = self.options.penetrationAcceleration;
 
 				// Check limits
 				if (scrollLeft < self.__minDecelerationScrollLeft) {
