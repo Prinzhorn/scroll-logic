@@ -25,7 +25,7 @@ scrollLogic.setBouncing(true);
 scrollLogic.setContainerLength(containerLength);
 scrollLogic.setContentLength(contentLength);
 
-//Get the scroll offset. Can be negative or larger than (contentLength - containerLength) if bouncing is enabled.
+//Get the scroll offset as integer. Can be negative or larger than (contentLength - containerLength) if bouncing is enabled.
 //ScrollLogic doesn't do ANYTHING unless you query the offset. There's no animation loop or any computation going on.
 var offset = scrollLogic.getOffset();
 
