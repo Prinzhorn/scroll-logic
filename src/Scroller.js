@@ -65,11 +65,11 @@ var Scroller;
 	 * @param pos {Number} position between 0 (start of effect) and 1 (end of effect)
 	**/
 	var easeInOutCubic = function(pos) {
-		if ((pos /= 0.5) < 1) {
-			return 0.5 * Math.pow(pos, 3);
+		if (pos < 0.5) {
+			return 0.5 * Math.pow(2 * pos, 3);
 		}
 
-		return 0.5 * (Math.pow((pos - 2), 3) + 2);
+		return 0.5 * (Math.pow((2 * pos - 2), 3) + 2);
 	};
 
 
