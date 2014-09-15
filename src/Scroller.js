@@ -123,10 +123,10 @@ var Scroller;
 		*/
 
 		/** {Integer} Available outer width */
-		__clientWidth: 0,
+		__containerWidth: 0,
 
 		/** {Integer} Available outer height */
-		__clientHeight: 0,
+		__containerHeight: 0,
 
 		/** {Integer} Outer width of content */
 		__contentWidth: 0,
@@ -222,11 +222,11 @@ var Scroller;
 
 			// Only update values which are defined
 			if (clientWidth === +clientWidth) {
-				self.__clientWidth = clientWidth;
+				self.__containerWidth = clientWidth;
 			}
 
 			if (clientHeight === +clientHeight) {
-				self.__clientHeight = clientHeight;
+				self.__containerHeight = clientHeight;
 			}
 
 			if (contentWidth === +contentWidth) {
@@ -715,8 +715,8 @@ var Scroller;
 
 			var self = this;
 
-			self.__maxScrollLeft = Math.max(self.__contentWidth - self.__clientWidth, 0);
-			self.__maxScrollTop = Math.max(self.__contentHeight - self.__clientHeight, 0);
+			self.__maxScrollLeft = Math.max(self.__contentWidth - self.__containerWidth, 0);
+			self.__maxScrollTop = Math.max(self.__contentHeight - self.__containerHeight, 0);
 
 		},
 
