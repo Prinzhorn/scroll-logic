@@ -54,6 +54,7 @@ var Scroller;
 
 	// Easing Equations (c) 2003 Robert Penner, all rights reserved.
 	// Open source under the BSD License.
+	// Optimized and refactored by @Prinzhorn. Also I don't think you can apply a license to such a tiny bit of math.
 
 	/**
 	 * @param pos {Number} position between 0 (start of effect) and 1 (end of effect)
@@ -103,15 +104,16 @@ var Scroller;
 		__isDragging: false,
 
 		/**
-		 * {Boolean} Not touching and dragging anymore, and smoothly animating the
-		 * touch sequence using deceleration.
+		 * {Integer} Not touching and dragging anymore, and smoothly animating the
+		 * touch sequence using deceleration. Contains the ID of the animation.
 		 */
-		__isDecelerating: false,
+		__deceleration: null,
 
 		/**
-		 * {Boolean} Smoothly animating the currently configured change
+		 * {Integer} Smoothly animating the currently configured change.
+		 * Contains the ID of the animation.
 		 */
-		__isAnimating: false,
+		__animation: null,
 
 
 
@@ -212,6 +214,22 @@ var Scroller;
 
 
 		/**
+		 * Calculates and returns the current scroll position.
+		 */
+		getOffset: function() {
+			//If no animation is running, simply return this thing!
+			if(!this.__animation) {
+				return this.__scrollOffset;
+			}
+
+			//An animation is currently running. This is the tricky part.
+			//Based on the current time, the start/end time of the animation and the easing function,
+			//we can calculate the desired offset.
+			var timeStamp = Date.now();
+		},
+
+
+		/**
 		 * Returns the maximum scroll values
 		 *
 		 * @return {Map} `left` and `top` maximum scroll values
@@ -234,9 +252,9 @@ var Scroller;
 			var self = this;
 
 			// Stop deceleration
-			if (self.__isDecelerating) {
-				core.effect.Animate.stop(self.__isDecelerating);
-				self.__isDecelerating = false;
+			if (self.__deceleration) {
+				core.effect.Animate.stop(self.__deceleration);
+				delete self.__deceleration;
 			}
 
 			// Limit for allowed ranges
@@ -271,16 +289,16 @@ var Scroller;
 			self.__interruptedAnimation = true;
 
 			// Stop deceleration
-			if (self.__isDecelerating) {
-				core.effect.Animate.stop(self.__isDecelerating);
-				self.__isDecelerating = false;
+			if (self.__deceleration) {
+				core.effect.Animate.stop(self.__deceleration);
+				delete self.__deceleration;
 				self.__interruptedAnimation = true;
 			}
 
 			// Stop animation
-			if (self.__isAnimating) {
-				core.effect.Animate.stop(self.__isAnimating);
-				self.__isAnimating = false;
+			if (self.__animation) {
+				core.effect.Animate.stop(self.__animation);
+				delete self.__animation;
 				self.__interruptedAnimation = true;
 			}
 
@@ -459,7 +477,7 @@ var Scroller;
 			// This is placed outside the condition above to improve edge case stability
 			// e.g. touchend fired without enabled dragging. This should normally do not
 			// have modified the scroll positions or even showed the scrollbars though.
-			if (!self.__isDecelerating) {
+			if (!self.__deceleration) {
 
 				if (self.__interruptedAnimation || self.__isDragging) {
 					self.options.scrollingComplete();
@@ -493,10 +511,10 @@ var Scroller;
 			var self = this;
 
 			// Remember whether we had an animation, then we try to continue based on the current "drive" of the animation
-			var wasAnimating = self.__isAnimating;
+			var wasAnimating = self.__animation;
 			if (wasAnimating) {
 				core.effect.Animate.stop(wasAnimating);
-				self.__isAnimating = false;
+				delete self.__animation;
 			}
 
 			if (animate && self.options.animating) {
@@ -515,12 +533,12 @@ var Scroller;
 				};
 
 				var verify = function(id) {
-					return self.__isAnimating === id;
+					return self.__animation === id;
 				};
 
 				var completed = function(renderedFramesPerSecond, animationId, wasFinished) {
-					if (animationId === self.__isAnimating) {
-						self.__isAnimating = false;
+					if (animationId === self.__animation) {
+						delete self.__animation;
 					}
 
 					if (self.__didDecelerationComplete || wasFinished) {
@@ -529,7 +547,7 @@ var Scroller;
 				};
 
 				// When continuing based on previous animation we choose an ease-out animation instead of ease-in-out
-				self.__isAnimating = core.effect.Animate.start(step, verify, completed, self.options.animationDuration, wasAnimating ? easeOutCubic : easeInOutCubic);
+				self.__animation = core.effect.Animate.start(step, verify, completed, self.options.animationDuration, wasAnimating ? easeOutCubic : easeInOutCubic);
 
 			} else {
 
@@ -575,7 +593,7 @@ var Scroller;
 			};
 
 			var completed = function(renderedFramesPerSecond, animationId, wasFinished) {
-				self.__isDecelerating = false;
+				delete self.__deceleration;
 				if (self.__didDecelerationComplete) {
 					self.options.scrollingComplete();
 				}
@@ -585,7 +603,7 @@ var Scroller;
 			};
 
 			// Start animation and switch on flag
-			self.__isDecelerating = core.effect.Animate.start(step, verify, completed);
+			self.__deceleration = core.effect.Animate.start(step, verify, completed);
 
 		},
 
