@@ -58,7 +58,9 @@ var Scroller;
 	 * @param pos {Number} position between 0 (start of effect) and 1 (end of effect)
 	**/
 	var easeOutCubic = function(pos) {
-		return (Math.pow((pos - 1), 3) + 1);
+		pos = pos - 1;
+
+		return pos * pos * pos + 1;
 	};
 
 	/**
@@ -66,10 +68,14 @@ var Scroller;
 	**/
 	var easeInOutCubic = function(pos) {
 		if (pos < 0.5) {
-			return 0.5 * Math.pow(2 * pos, 3);
+			return 4 * pos * pos * pos;
 		}
 
-		return 0.5 * (Math.pow((2 * pos - 2), 3) + 2);
+		//The >= 0.5 case is the same as easeOutCubic, but I'm not interested in a function call here.
+		//It would simply be return easeOutCubic(p);
+		pos = pos - 1;
+
+		return 4 * pos * pos * pos + 1
 	};
 
 
