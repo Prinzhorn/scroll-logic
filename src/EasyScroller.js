@@ -77,7 +77,7 @@ EasyScroller.prototype.render = (function() {
 EasyScroller.prototype.reflow = function() {
 
 	// set the right scroller dimensions
-	this.scroller.setDimensions(this.container.clientHeight, this.content.offsetHeight);
+	this.scroller.setLengths(this.container.clientHeight, this.content.offsetHeight);
 
 };
 

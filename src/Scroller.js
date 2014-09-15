@@ -178,21 +178,15 @@ var Scroller;
 		 * @param containerLength {Integer ? null} Inner width of outer element
 		 * @param contentLength {Integer ? null} Outer width of inner element
 		 */
-		setDimensions: function(containerLength, contentLength) {
+		setLengths: function(containerLength, contentLength) {
 
 			var self = this;
 
-			// Only update values which are defined
-			if (containerLength === +containerLength) {
-				self.__containerLength = containerLength;
-			}
-
-			if (contentLength === +contentLength) {
-				self.__contentLength = contentLength;
-			}
+			self.__containerLength = containerLength;
+			self.__contentLength = contentLength;
 
 			// Refresh maximums
-			self.__computeScrollMax();
+			self.__maxScrollOffset = Math.max(contentLength - containerLength, 0);
 
 			// Refresh scroll position
 			self.scrollTo(self.__scrollOffset, true);
@@ -536,17 +530,6 @@ var Scroller;
 
 			}
 		},
-
-
-		/**
-		 * Recomputes scroll minimum values based on client dimensions and content dimensions.
-		 */
-		__computeScrollMax: function() {
-
-			this.__maxScrollOffset = Math.max(this.__contentLength - this.__containerLength, 0);
-
-		},
-
 
 
 		/*
