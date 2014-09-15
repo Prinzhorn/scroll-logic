@@ -40,9 +40,6 @@ var Scroller;
 			/** Enable bouncing (content can be slowly moved outside and jumps back after releasing) */
 			bouncing: true,
 
-			/** Enable locking to the main axis if user moves only slightly on one of them at start */
-			locking: true,
-
 			/** Multiply or decrease scrolling speed **/
 			speedMultiplier: 1,
 
@@ -148,21 +145,6 @@ var Scroller;
 
 		/** {Integer} Outer height of content */
 		__contentHeight: 0,
-
-		/** {Integer} Height to assign to refresh area */
-		__refreshHeight: null,
-
-		/** {Boolean} Whether the refresh process is enabled when the event is released now */
-		__refreshActive: false,
-
-		/** {Function} Callback to execute on activation. This is for signalling the user about a refresh is about to happen when he release */
-		__refreshActivate: null,
-
-		/** {Function} Callback to execute on deactivation. This is for signalling the user about the refresh being cancelled */
-		__refreshDeactivate: null,
-
-		/** {Function} Callback to execute to start the actual refresh. Call {@link #refreshFinish} when done */
-		__refreshStart: null,
 
 		/** {Number} Scroll position on x-axis */
 		__scrollLeft: 0,
@@ -439,10 +421,6 @@ var Scroller;
 			// Reset initial scale
 			self.__lastScale = 1;
 
-			// Reset locking flags
-			self.__enableScrollX = !isSingleTouch && self.options.scrollingX;
-			self.__enableScrollY = !isSingleTouch && self.options.scrollingY;
-
 			// Reset tracking flag
 			self.__isTracking = true;
 
@@ -510,72 +488,47 @@ var Scroller;
 				var scrollLeft = self.__scrollLeft;
 				var scrollTop = self.__scrollTop;
 
-				if (self.__enableScrollX) {
+				// Compute new horizontal scroll position
+				scrollLeft -= moveX * this.options.speedMultiplier;
+				var maxScrollLeft = self.__maxScrollLeft;
 
-					scrollLeft -= moveX * this.options.speedMultiplier;
-					var maxScrollLeft = self.__maxScrollLeft;
+				if (scrollLeft > maxScrollLeft || scrollLeft < 0) {
 
-					if (scrollLeft > maxScrollLeft || scrollLeft < 0) {
+					// Slow down on the edges
+					if (self.options.bouncing) {
 
-						// Slow down on the edges
-						if (self.options.bouncing) {
+						scrollLeft += (moveX / 2  * this.options.speedMultiplier);
 
-							scrollLeft += (moveX / 2  * this.options.speedMultiplier);
+					} else if (scrollLeft > maxScrollLeft) {
 
-						} else if (scrollLeft > maxScrollLeft) {
+						scrollLeft = maxScrollLeft;
 
-							scrollLeft = maxScrollLeft;
+					} else {
 
-						} else {
+						scrollLeft = 0;
 
-							scrollLeft = 0;
-
-						}
 					}
 				}
 
 				// Compute new vertical scroll position
-				if (self.__enableScrollY) {
+				scrollTop -= moveY * this.options.speedMultiplier;
+				var maxScrollTop = self.__maxScrollTop;
 
-					scrollTop -= moveY * this.options.speedMultiplier;
-					var maxScrollTop = self.__maxScrollTop;
+				if (scrollTop > maxScrollTop || scrollTop < 0) {
 
-					if (scrollTop > maxScrollTop || scrollTop < 0) {
+					// Slow down on the edges
+					if (self.options.bouncing) {
 
-						// Slow down on the edges
-						if (self.options.bouncing) {
+						scrollTop += (moveY / 2 * this.options.speedMultiplier);
 
-							scrollTop += (moveY / 2 * this.options.speedMultiplier);
+					} else if (scrollTop > maxScrollTop) {
 
-							// Support pull-to-refresh (only when only y is scrollable)
-							if (!self.__enableScrollX && self.__refreshHeight != null) {
+						scrollTop = maxScrollTop;
 
-								if (!self.__refreshActive && scrollTop <= -self.__refreshHeight) {
+					} else {
 
-									self.__refreshActive = true;
-									if (self.__refreshActivate) {
-										self.__refreshActivate();
-									}
+						scrollTop = 0;
 
-								} else if (self.__refreshActive && scrollTop > -self.__refreshHeight) {
-
-									self.__refreshActive = false;
-									if (self.__refreshDeactivate) {
-										self.__refreshDeactivate();
-									}
-
-								}
-							}
-
-						} else if (scrollTop > maxScrollTop) {
-
-							scrollTop = maxScrollTop;
-
-						} else {
-
-							scrollTop = 0;
-
-						}
 					}
 				}
 
@@ -593,18 +546,16 @@ var Scroller;
 			// Otherwise figure out whether we are switching into dragging mode now.
 			} else {
 
-				var minimumTrackingForScroll = self.options.locking ? 3 : 0;
+				var minimumTrackingForScroll = 0;
 				var minimumTrackingForDrag = 5;
 
 				var distanceX = Math.abs(currentTouchLeft - self.__initialTouchLeft);
 				var distanceY = Math.abs(currentTouchTop - self.__initialTouchTop);
 
-				self.__enableScrollX = self.options.scrollingX && distanceX >= minimumTrackingForScroll;
-				self.__enableScrollY = self.options.scrollingY && distanceY >= minimumTrackingForScroll;
-
 				positions.push(self.__scrollLeft, self.__scrollTop, timeStamp);
 
-				self.__isDragging = (self.__enableScrollX || self.__enableScrollY) && (distanceX >= minimumTrackingForDrag || distanceY >= minimumTrackingForDrag);
+				self.__isDragging = (distanceX >= minimumTrackingForDrag || distanceY >= minimumTrackingForDrag);
+
 				if (self.__isDragging) {
 					self.__interruptedAnimation = false;
 				}
@@ -682,11 +633,7 @@ var Scroller;
 
 						// Verify that we have enough velocity to start deceleration
 						if (Math.abs(self.__decelerationVelocityX) > minVelocityToStartDeceleration || Math.abs(self.__decelerationVelocityY) > minVelocityToStartDeceleration) {
-
-							// Deactivate pull-to-refresh when decelerating
-							if (!self.__refreshActive) {
-								self.__startDeceleration(timeStamp);
-							}
+							self.__startDeceleration(timeStamp);
 						}
 					} else {
 						self.options.scrollingComplete();
@@ -703,33 +650,11 @@ var Scroller;
 			// have modified the scroll positions or even showed the scrollbars though.
 			if (!self.__isDecelerating) {
 
-				if (self.__refreshActive && self.__refreshStart) {
-
-					// Use publish instead of scrollTo to allow scrolling to out of boundary position
-					// We don't need to normalize scrollLeft, etc. here because we only y-scrolling when pull-to-refresh is enabled
-					self.__publish(self.__scrollLeft, -self.__refreshHeight, true);
-
-					if (self.__refreshStart) {
-						self.__refreshStart();
-					}
-
-				} else {
-
-					if (self.__interruptedAnimation || self.__isDragging) {
-						self.options.scrollingComplete();
-					}
-					self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
-
-					// Directly signalize deactivation (nothing todo on refresh?)
-					if (self.__refreshActive) {
-
-						self.__refreshActive = false;
-						if (self.__refreshDeactivate) {
-							self.__refreshDeactivate();
-						}
-
-					}
+				if (self.__interruptedAnimation || self.__isDragging) {
+					self.options.scrollingComplete();
 				}
+
+				self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
 			}
 
 			// Fully cleanup list
