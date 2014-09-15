@@ -536,7 +536,7 @@ var Scroller;
 					return self.__animation === id;
 				};
 
-				var completed = function(renderedFramesPerSecond, animationId, wasFinished) {
+				var completed = function(animationId, wasFinished) {
 					if (animationId === self.__animation) {
 						delete self.__animation;
 					}
@@ -592,7 +592,7 @@ var Scroller;
 				return shouldContinue;
 			};
 
-			var completed = function(renderedFramesPerSecond, animationId, wasFinished) {
+			var completed = function(animationId, wasFinished) {
 				delete self.__deceleration;
 				if (self.__didDecelerationComplete) {
 					self.options.scrollingComplete();

@@ -189,7 +189,7 @@
 				if (!running[id] || (verifyCallback && !verifyCallback(id))) {
 
 					running[id] = null;
-					completedCallback && completedCallback(desiredFrames - (dropCounter / ((now - start) / millisecondsPerSecond)), id, false);
+					completedCallback && completedCallback(id, false);
 					return;
 
 				}
@@ -218,7 +218,7 @@
 				var value = easingMethod ? easingMethod(percent) : percent;
 				if ((stepCallback(value, now, render) === false || percent === 1) && render) {
 					running[id] = null;
-					completedCallback && completedCallback(desiredFrames - (dropCounter / ((now - start) / millisecondsPerSecond)), id, percent === 1 || duration == null);
+					completedCallback && completedCallback(id, percent === 1 || duration == null);
 				} else if (render) {
 					lastFrame = now;
 					core.effect.Animate.requestAnimationFrame(step, root);
