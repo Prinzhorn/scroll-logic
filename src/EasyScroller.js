@@ -8,7 +8,7 @@ var EasyScroller = function(content, options) {
 	var that = this;
 	this.scroller = new Scroller(options);
 
-
+	//Yeah, that's just there as a quick hack.
 	window.setInterval(function() {
 		//console.log(that.scroller.__scrollOffset);
 		that.render(that.scroller.__scrollOffset);
@@ -171,8 +171,8 @@ document.addEventListener("DOMContentLoaded", function() {
 		element = elements[i];
 
 		new EasyScroller(element, {
-			bouncing: false,
-			animating: false
+			bouncing: true,
+			animating: true
 		});
 
 	};

@@ -320,6 +320,7 @@ var Scroller;
 			}
 
 			var positions = self.__positions;
+			var currentOffset = self.__scrollOffset;
 
 			// Are we already is dragging mode?
 			if (self.__isDragging) {
@@ -328,7 +329,7 @@ var Scroller;
 				var distance = offset - self.__lastTouchOffset;
 
 				// Update the position
-				var newOffset = self.__scrollOffset - distance;
+				var newOffset = currentOffset - distance;
 
 				// Scrolling past one of the edges.
 				if (newOffset < 0 || newOffset > self.__maxScrollOffset) {
@@ -336,8 +337,8 @@ var Scroller;
 					// Slow down on the edges
 					if (self.options.bouncing) {
 
-						// Only use half the distance to make the resistance at the edge visible.
-						newOffset = newOffset + (distance / 2);
+						// Only use half of the distance to make the resistance at the edge tangible
+						newOffset = currentOffset - (distance / 2);
 
 					}
 					// Bouncing is disabled, prevent overscrolling.
@@ -371,7 +372,7 @@ var Scroller;
 
 				var completeDistance = Math.abs(offset - self.__initialTouchOffset);
 
-				positions.push(self.__scrollOffset, timeStamp);
+				positions.push(currentOffset, timeStamp);
 
 				self.__isDragging = (completeDistance >= minimumTrackingForDrag);
 
