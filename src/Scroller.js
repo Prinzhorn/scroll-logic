@@ -1,8 +1,9 @@
 /*
- * Scroller
- * http://github.com/zynga/scroller
+ * scroll-logic
+ * http://github.com/prinzhorn/scroll-logic
  *
  * Copyright 2011, Zynga Inc.
+ * Modifications by Alexander Prinzhorn (@Prinzhorn)
  * Licensed under the MIT License.
  * https://raw.github.com/zynga/scroller/master/MIT-LICENSE.txt
  *
