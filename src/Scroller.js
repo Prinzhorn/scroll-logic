@@ -20,9 +20,7 @@ var Scroller;
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
 	 */
-	Scroller = function(callback, options) {
-		this.__callback = callback;
-
+	Scroller = function(options) {
 		this.options = {
 
 			/** Enable animations for deceleration, snap back and scrolling */
@@ -33,9 +31,6 @@ var Scroller;
 
 			/** Enable bouncing (content can be slowly moved outside and jumps back after releasing) */
 			bouncing: true,
-
-			/** Multiply or decrease scrolling speed **/
-			speedMultiplier: 1,
 
 			/** Callback that is fired on the later of touch end or deceleration end,
 				provided that another scrolling action has not begun. Used to know
@@ -86,9 +81,6 @@ var Scroller;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Boolean} Whether only a single finger is used in touch handling */
-		__isSingleTouch: false,
-
 		/** {Boolean} Whether a touch event sequence is in progress */
 		__isTracking: false,
 
@@ -122,35 +114,20 @@ var Scroller;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Integer} Available outer width */
-		__containerWidth: 0,
+		/** {Integer} Available container length */
+		__containerLength: 0,
 
-		/** {Integer} Available outer height */
-		__containerHeight: 0,
+		/** {Integer} Outer length of content */
+		__contentLength: 0,
 
-		/** {Integer} Outer width of content */
-		__contentWidth: 0,
+		/** {Number} Scroll position */
+		__scrollOffset: 0,
 
-		/** {Integer} Outer height of content */
-		__contentHeight: 0,
+		/** {Integer} Maximum allowed scroll position */
+		__maxScrollOffset: 0,
 
-		/** {Number} Scroll position on x-axis */
-		__scrollLeft: 0,
-
-		/** {Number} Scroll position on y-axis */
-		__scrollTop: 0,
-
-		/** {Integer} Maximum allowed scroll position on x-axis */
-		__maxScrollLeft: 0,
-
-		/** {Integer} Maximum allowed scroll position on y-axis */
-		__maxScrollTop: 0,
-
-		/* {Number} Scheduled left position (final position when animating) */
-		__scheduledLeft: 0,
-
-		/* {Number} Scheduled top position (final position when animating) */
-		__scheduledTop: 0,
+		/* {Number} Scheduled position (final position when animating) */
+		__scheduledOffset: 0,
 
 
 
@@ -160,16 +137,13 @@ var Scroller;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Number} Left position of finger at start */
-		__lastTouchLeft: null,
-
-		/** {Number} Top position of finger at start */
-		__lastTouchTop: null,
+		/** {Number} Position of finger at start */
+		__lastTouchOffset: null,
 
 		/** {Date} Timestamp of last move of finger. Used to limit tracking range for deceleration speed. */
 		__lastTouchMove: null,
 
-		/** {Array} List of positions, uses three indexes for each state: left, top, timestamp */
+		/** {Array} List of positions, uses two indexes for each state: offset and timestamp */
 		__positions: null,
 
 
@@ -180,24 +154,14 @@ var Scroller;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Integer} Minimum left scroll position during deceleration */
-		__minDecelerationScrollLeft: null,
+		/** {Integer} Minimum scroll position during deceleration */
+		__minDecelerationScrollOffset: null,
 
-		/** {Integer} Minimum top scroll position during deceleration */
-		__minDecelerationScrollTop: null,
+		/** {Integer} Maximum scroll position during deceleration */
+		__maxDecelerationScrollOffset: null,
 
-		/** {Integer} Maximum left scroll position during deceleration */
-		__maxDecelerationScrollLeft: null,
-
-		/** {Integer} Maximum top scroll position during deceleration */
-		__maxDecelerationScrollTop: null,
-
-		/** {Number} Current factor to modify horizontal scroll position with on every step */
-		__decelerationVelocityX: null,
-
-		/** {Number} Current factor to modify vertical scroll position with on every step */
-		__decelerationVelocityY: null,
-
+		/** {Number} Current factor to modify scroll position with on every step */
+		__decelerationVelocity: null,
 
 
 		/*
@@ -211,54 +175,37 @@ var Scroller;
 		 * Requires the available space for the outer element and the outer size of the inner element.
 		 * All values which are falsy (null or zero etc.) are ignored and the old value is kept.
 		 *
-		 * @param clientWidth {Integer ? null} Inner width of outer element
-		 * @param clientHeight {Integer ? null} Inner height of outer element
-		 * @param contentWidth {Integer ? null} Outer width of inner element
-		 * @param contentHeight {Integer ? null} Outer height of inner element
+		 * @param containerLength {Integer ? null} Inner width of outer element
+		 * @param contentLength {Integer ? null} Outer width of inner element
 		 */
-		setDimensions: function(clientWidth, clientHeight, contentWidth, contentHeight) {
+		setDimensions: function(containerLength, contentLength) {
 
 			var self = this;
 
 			// Only update values which are defined
-			if (clientWidth === +clientWidth) {
-				self.__containerWidth = clientWidth;
+			if (containerLength === +containerLength) {
+				self.__containerLength = containerLength;
 			}
 
-			if (clientHeight === +clientHeight) {
-				self.__containerHeight = clientHeight;
-			}
-
-			if (contentWidth === +contentWidth) {
-				self.__contentWidth = contentWidth;
-			}
-
-			if (contentHeight === +contentHeight) {
-				self.__contentHeight = contentHeight;
+			if (contentLength === +contentLength) {
+				self.__contentLength = contentLength;
 			}
 
 			// Refresh maximums
 			self.__computeScrollMax();
 
 			// Refresh scroll position
-			self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
+			self.scrollTo(self.__scrollOffset, true);
 
 		},
 
 
 		/**
 		 * Returns the scroll position
-		 *
-		 * @return {Map} `left` and `top` scroll position
 		 */
 		getValues: function() {
 
-			var self = this;
-
-			return {
-				left: self.__scrollLeft,
-				top: self.__scrollTop
-			};
+			return this.__scrollOffset;
 
 		},
 
@@ -270,12 +217,7 @@ var Scroller;
 		 */
 		getScrollMax: function() {
 
-			var self = this;
-
-			return {
-				left: self.__maxScrollLeft,
-				top: self.__maxScrollTop
-			};
+			return this.__maxScrollOffset;
 
 		},
 
@@ -283,11 +225,10 @@ var Scroller;
 		/**
 		 * Scrolls to the given position. Respect limitations and snapping automatically.
 		 *
-		 * @param left {Number?null} Horizontal scroll position, keeps current if value is <code>null</code>
-		 * @param top {Number?null} Vertical scroll position, keeps current if value is <code>null</code>
+		 * @param offset {Number} New scroll position.
 		 * @param animate {Boolean?false} Whether the scrolling should happen using an animation
 		 */
-		scrollTo: function(left, top, animate) {
+		scrollTo: function(offset, animate) {
 
 			var self = this;
 
@@ -297,21 +238,17 @@ var Scroller;
 				self.__isDecelerating = false;
 			}
 
-			left = self.__scrollLeft;
-			top = self.__scrollTop;
-
 			// Limit for allowed ranges
-			left = Math.max(Math.min(self.__maxScrollLeft, left), 0);
-			top = Math.max(Math.min(self.__maxScrollTop, top), 0);
+			offset = Math.max(Math.min(self.__maxScrollOffset, offset), 0);
 
 			// Don't animate when no change detected, still call publish to make sure
 			// that rendered position is really in-sync with internal data
-			if (left === self.__scrollLeft && top === self.__scrollTop) {
+			if (offset === self.__scrollOffset) {
 				animate = false;
 			}
 
 			// Publish new values
-			self.__publish(left, top, animate);
+			self.__publish(offset, animate);
 
 		},
 
@@ -327,19 +264,6 @@ var Scroller;
 		 * Touch start handler for scrolling support
 		 */
 		doTouchStart: function(touches, timeStamp) {
-
-			// Array-like check is enough here
-			if (touches.length == null) {
-				throw new Error("Invalid touch list: " + touches);
-			}
-
-			if (timeStamp instanceof Date) {
-				timeStamp = timeStamp.valueOf();
-			}
-			if (typeof timeStamp !== "number") {
-				throw new Error("Invalid timestamp value: " + timeStamp);
-			}
-
 			var self = this;
 
 			// Reset interruptedAnimation flag
@@ -360,29 +284,18 @@ var Scroller;
 			}
 
 			// Use center point when dealing with two fingers
-			var currentTouchLeft, currentTouchTop;
-			var isSingleTouch = touches.length === 1;
-			if (isSingleTouch) {
-				currentTouchLeft = touches[0].pageX;
-				currentTouchTop = touches[0].pageY;
-			} else {
-				currentTouchLeft = Math.abs(touches[0].pageX + touches[1].pageX) / 2;
-				currentTouchTop = Math.abs(touches[0].pageY + touches[1].pageY) / 2;
-			}
+			var currentTouchOffset;
+
+			currentTouchOffset = touches[0].pageX;
 
 			// Store initial positions
-			self.__initialTouchLeft = currentTouchLeft;
-			self.__initialTouchTop = currentTouchTop;
+			self.__initialTouchOffset = currentTouchOffset;
 
 			// Store initial touch positions
-			self.__lastTouchLeft = currentTouchLeft;
-			self.__lastTouchTop = currentTouchTop;
+			self.__lastTouchOffset = currentTouchOffset;
 
 			// Store initial move time stamp
 			self.__lastTouchMove = timeStamp;
-
-			// Reset initial scale
-			self.__lastScale = 1;
 
 			// Reset tracking flag
 			self.__isTracking = true;
@@ -391,10 +304,7 @@ var Scroller;
 			self.__didDecelerationComplete = false;
 
 			// Dragging starts directly with two fingers, otherwise lazy with an offset
-			self.__isDragging = !isSingleTouch;
-
-			// Some features are disabled in multi touch scenarios
-			self.__isSingleTouch = isSingleTouch;
+			self.__isDragging = false;
 
 			// Clearing data structure
 			self.__positions = [];
@@ -405,19 +315,7 @@ var Scroller;
 		/**
 		 * Touch move handler for scrolling support
 		 */
-		doTouchMove: function(touches, timeStamp, scale) {
-
-			// Array-like check is enough here
-			if (touches.length == null) {
-				throw new Error("Invalid touch list: " + touches);
-			}
-
-			if (timeStamp instanceof Date) {
-				timeStamp = timeStamp.valueOf();
-			}
-			if (typeof timeStamp !== "number") {
-				throw new Error("Invalid timestamp value: " + timeStamp);
-			}
+		doTouchMove: function(touches, timeStamp) {
 
 			var self = this;
 
@@ -427,71 +325,39 @@ var Scroller;
 			}
 
 
-			var currentTouchLeft, currentTouchTop;
-
-			// Compute move based around of center of fingers
-			if (touches.length === 2) {
-				currentTouchLeft = Math.abs(touches[0].pageX + touches[1].pageX) / 2;
-				currentTouchTop = Math.abs(touches[0].pageY + touches[1].pageY) / 2;
-			} else {
-				currentTouchLeft = touches[0].pageX;
-				currentTouchTop = touches[0].pageY;
-			}
-
+			var currentTouchOffset = touches[0].pageX;
 			var positions = self.__positions;
 
 			// Are we already is dragging mode?
 			if (self.__isDragging) {
 
 				// Compute move distance
-				var moveX = currentTouchLeft - self.__lastTouchLeft;
-				var moveY = currentTouchTop - self.__lastTouchTop;
+				var distance = currentTouchOffset - self.__lastTouchOffset;
 
 				// Read previous scroll position
-				var scrollLeft = self.__scrollLeft;
-				var scrollTop = self.__scrollTop;
+				var newOffset = self.__scrollOffset - distance;
 
-				// Compute new horizontal scroll position
-				scrollLeft -= moveX * this.options.speedMultiplier;
-				var maxScrollLeft = self.__maxScrollLeft;
-
-				if (scrollLeft > maxScrollLeft || scrollLeft < 0) {
+				// Scrolling past one of the edges.
+				if (newOffset < 0 || newOffset > self.__maxScrollOffset) {
 
 					// Slow down on the edges
 					if (self.options.bouncing) {
 
-						scrollLeft += (moveX / 2  * this.options.speedMultiplier);
-
-					} else if (scrollLeft > maxScrollLeft) {
-
-						scrollLeft = maxScrollLeft;
-
-					} else {
-
-						scrollLeft = 0;
+						// Only use half the distance to make the resistance at the edge visible.
+						newOffset = newOffset + (distance / 2);
 
 					}
-				}
+					// Bouncing is disabled, prevent overscrolling.
+					else {
+						if (newOffset < 0) {
 
-				// Compute new vertical scroll position
-				scrollTop -= moveY * this.options.speedMultiplier;
-				var maxScrollTop = self.__maxScrollTop;
+							newOffset = 0;
 
-				if (scrollTop > maxScrollTop || scrollTop < 0) {
+						} else {
 
-					// Slow down on the edges
-					if (self.options.bouncing) {
+							newOffset = self.__maxScrollOffset;
 
-						scrollTop += (moveY / 2 * this.options.speedMultiplier);
-
-					} else if (scrollTop > maxScrollTop) {
-
-						scrollTop = maxScrollTop;
-
-					} else {
-
-						scrollTop = 0;
-
+						}
 					}
 				}
 
@@ -501,23 +367,21 @@ var Scroller;
 				}
 
 				// Track scroll movement for decleration
-				positions.push(scrollLeft, scrollTop, timeStamp);
+				positions.push(newOffset, timeStamp);
 
 				// Sync scroll position
-				self.__publish(scrollLeft, scrollTop);
+				self.__publish(newOffset);
 
 			// Otherwise figure out whether we are switching into dragging mode now.
 			} else {
 
-				var minimumTrackingForScroll = 0;
 				var minimumTrackingForDrag = 5;
 
-				var distanceX = Math.abs(currentTouchLeft - self.__initialTouchLeft);
-				var distanceY = Math.abs(currentTouchTop - self.__initialTouchTop);
+				var completeDistance = Math.abs(currentTouchOffset - self.__initialTouchOffset);
 
-				positions.push(self.__scrollLeft, self.__scrollTop, timeStamp);
+				positions.push(self.__scrollOffset, timeStamp);
 
-				self.__isDragging = (distanceX >= minimumTrackingForDrag || distanceY >= minimumTrackingForDrag);
+				self.__isDragging = (completeDistance >= minimumTrackingForDrag);
 
 				if (self.__isDragging) {
 					self.__interruptedAnimation = false;
@@ -526,10 +390,8 @@ var Scroller;
 			}
 
 			// Update last touch positions and time stamp for next event
-			self.__lastTouchLeft = currentTouchLeft;
-			self.__lastTouchTop = currentTouchTop;
+			self.__lastTouchOffset = currentTouchOffset;
 			self.__lastTouchMove = timeStamp;
-			self.__lastScale = scale;
 
 		},
 
@@ -538,13 +400,6 @@ var Scroller;
 		 * Touch end handler for scrolling support
 		 */
 		doTouchEnd: function(timeStamp) {
-
-			if (timeStamp instanceof Date) {
-				timeStamp = timeStamp.valueOf();
-			}
-			if (typeof timeStamp !== "number") {
-				throw new Error("Invalid timestamp value: " + timeStamp);
-			}
 
 			var self = this;
 
@@ -566,7 +421,8 @@ var Scroller;
 
 				// Start deceleration
 				// Verify that the last move detected was in some relevant time frame
-				if (self.__isSingleTouch && self.options.animating && (timeStamp - self.__lastTouchMove) <= 100) {
+				//TODO: remove magic number 100
+				if (self.options.animating && (timeStamp - self.__lastTouchMove) <= 100) {
 
 					// Then figure out what the scroll position was about 100ms ago
 					var positions = self.__positions;
@@ -574,7 +430,7 @@ var Scroller;
 					var startPos = endPos;
 
 					// Move pointer to position measured 100ms ago
-					for (var i = endPos; i > 0 && positions[i] > (self.__lastTouchMove - 100); i -= 3) {
+					for (var i = endPos; i > 0 && positions[i] > (self.__lastTouchMove - 100); i -= 2) {
 						startPos = i;
 					}
 
@@ -584,18 +440,16 @@ var Scroller;
 
 						// Compute relative movement between these two points
 						var timeOffset = positions[endPos] - positions[startPos];
-						var movedLeft = self.__scrollLeft - positions[startPos - 2];
-						var movedTop = self.__scrollTop - positions[startPos - 1];
+						var movedOffset = self.__scrollOffset - positions[startPos - 1];
 
 						// Based on 50ms compute the movement to apply for each render step
-						self.__decelerationVelocityX = movedLeft / timeOffset * (1000 / 60);
-						self.__decelerationVelocityY = movedTop / timeOffset * (1000 / 60);
+						self.__decelerationVelocity = movedOffset / timeOffset * (1000 / 60);
 
 						// How much velocity is required to start the deceleration
 						var minVelocityToStartDeceleration = 1;
 
 						// Verify that we have enough velocity to start deceleration
-						if (Math.abs(self.__decelerationVelocityX) > minVelocityToStartDeceleration || Math.abs(self.__decelerationVelocityY) > minVelocityToStartDeceleration) {
+						if (Math.abs(self.__decelerationVelocity) > minVelocityToStartDeceleration) {
 							self.__startDeceleration(timeStamp);
 						}
 					} else {
@@ -617,7 +471,7 @@ var Scroller;
 					self.options.scrollingComplete();
 				}
 
-				self.scrollTo(self.__scrollLeft, self.__scrollTop, true);
+				self.scrollTo(self.__scrollOffset, true);
 			}
 
 			// Fully cleanup list
@@ -640,7 +494,7 @@ var Scroller;
 		 * @param top {Number} Top scroll position
 		 * @param animate {Boolean?false} Whether animation should be used to move to the new coordinates
 		 */
-		__publish: function(left, top, animate) {
+		__publish: function(newOffset, animate) {
 
 			var self = this;
 
@@ -654,28 +508,16 @@ var Scroller;
 			if (animate && self.options.animating) {
 
 				// Keep scheduled positions for scrollBy functionality
-				self.__scheduledLeft = left;
-				self.__scheduledTop = top;
+				self.__scheduledOffset = newOffset;
 
-				var oldLeft = self.__scrollLeft;
-				var oldTop = self.__scrollTop;
+				var oldOffset = self.__scrollOffset;
 
-				var diffLeft = left - oldLeft;
-				var diffTop = top - oldTop;
+				var deltaOffset = newOffset - oldOffset;
 
 				var step = function(percent, now, render) {
 
-					if (render) {
+					self.__scrollOffset = oldOffset + (deltaOffset * percent);
 
-						self.__scrollLeft = oldLeft + (diffLeft * percent);
-						self.__scrollTop = oldTop + (diffTop * percent);
-
-						// Push values out
-						if (self.__callback) {
-							self.__callback(self.__scrollLeft, self.__scrollTop);
-						}
-
-					}
 				};
 
 				var verify = function(id) {
@@ -697,13 +539,8 @@ var Scroller;
 
 			} else {
 
-				self.__scheduledLeft = self.__scrollLeft = left;
-				self.__scheduledTop = self.__scrollTop = top;
+				self.__scheduledLeft = self.__scrollOffset = newOffset;
 
-				// Push values out
-				if (self.__callback) {
-					self.__callback(left, top);
-				}
 			}
 		},
 
@@ -713,10 +550,7 @@ var Scroller;
 		 */
 		__computeScrollMax: function() {
 
-			var self = this;
-
-			self.__maxScrollLeft = Math.max(self.__contentWidth - self.__containerWidth, 0);
-			self.__maxScrollTop = Math.max(self.__contentHeight - self.__containerHeight, 0);
+			this.__maxScrollOffset = Math.max(this.__contentLength - this.__containerLength, 0);
 
 		},
 
@@ -736,10 +570,8 @@ var Scroller;
 
 			var self = this;
 
-			self.__minDecelerationScrollLeft = 0;
-			self.__minDecelerationScrollTop = 0;
-			self.__maxDecelerationScrollLeft = self.__maxScrollLeft;
-			self.__maxDecelerationScrollTop = self.__maxScrollTop;
+			self.__minDecelerationScrollOffset = 0;
+			self.__maxDecelerationScrollOffset = self.__maxScrollOffset;
 
 			// Wrap class method
 			var step = function(percent, now, render) {
@@ -752,7 +584,7 @@ var Scroller;
 			// Detect whether it's still worth to continue animating steps
 			// If we are already slow enough to not being user perceivable anymore, we stop the whole process here.
 			var verify = function() {
-				var shouldContinue = Math.abs(self.__decelerationVelocityX) >= minVelocityToKeepDecelerating || Math.abs(self.__decelerationVelocityY) >= minVelocityToKeepDecelerating;
+				var shouldContinue = (Math.abs(self.__decelerationVelocity) >= minVelocityToKeepDecelerating);
 				if (!shouldContinue) {
 					self.__didDecelerationComplete = true;
 				}
@@ -766,7 +598,7 @@ var Scroller;
 				}
 
 				// Animate to grid when snapping is active, otherwise just fix out-of-boundary positions
-				self.scrollTo(self.__scrollLeft, self.__scrollTop);
+				self.scrollTo(self.__scrollOffset);
 			};
 
 			// Start animation and switch on flag
@@ -790,8 +622,7 @@ var Scroller;
 			//
 
 			// Add deceleration to scroll position
-			var scrollLeft = self.__scrollLeft + self.__decelerationVelocityX;
-			var scrollTop = self.__scrollTop + self.__decelerationVelocityY;
+			var scrollOffset = self.__scrollOffset + self.__decelerationVelocity;
 
 
 			//
@@ -800,16 +631,10 @@ var Scroller;
 
 			if (!self.options.bouncing) {
 
-				var scrollLeftFixed = Math.max(Math.min(self.__maxDecelerationScrollLeft, scrollLeft), self.__minDecelerationScrollLeft);
-				if (scrollLeftFixed !== scrollLeft) {
-					scrollLeft = scrollLeftFixed;
-					self.__decelerationVelocityX = 0;
-				}
-
-				var scrollTopFixed = Math.max(Math.min(self.__maxDecelerationScrollTop, scrollTop), self.__minDecelerationScrollTop);
-				if (scrollTopFixed !== scrollTop) {
-					scrollTop = scrollTopFixed;
-					self.__decelerationVelocityY = 0;
+				var scrollOffsetFixed = Math.max(Math.min(self.__maxDecelerationScrollOffset, scrollOffset), self.__minDecelerationScrollOffset);
+				if (scrollOffsetFixed !== scrollOffset) {
+					scrollof = scrollOffsetFixed;
+					self.__decelerationVelocity = 0;
 				}
 
 			}
@@ -821,12 +646,11 @@ var Scroller;
 
 			if (render) {
 
-				self.__publish(scrollLeft, scrollTop);
+				self.__publish(scrollOffset);
 
 			} else {
 
-				self.__scrollLeft = scrollLeft;
-				self.__scrollTop = scrollTop;
+				self.__scrollOffset = scrollOffset;
 
 			}
 
@@ -840,8 +664,7 @@ var Scroller;
 			// objects slow down when the initiator of the movement is removed
 			var frictionFactor = 0.95;
 
-			self.__decelerationVelocityX *= frictionFactor;
-			self.__decelerationVelocityY *= frictionFactor;
+			self.__decelerationVelocity *= frictionFactor;
 
 			//
 			// BOUNCING SUPPORT
@@ -849,40 +672,25 @@ var Scroller;
 
 			if (self.options.bouncing) {
 
-				var scrollOutsideX = 0;
-				var scrollOutsideY = 0;
+				var scrollOutside = 0;
 
 				// This configures the amount of change applied to deceleration/acceleration when reaching boundaries
 				var penetrationDeceleration = self.options.penetrationDeceleration;
 				var penetrationAcceleration = self.options.penetrationAcceleration;
 
 				// Check limits
-				if (scrollLeft < self.__minDecelerationScrollLeft) {
-					scrollOutsideX = self.__minDecelerationScrollLeft - scrollLeft;
-				} else if (scrollLeft > self.__maxDecelerationScrollLeft) {
-					scrollOutsideX = self.__maxDecelerationScrollLeft - scrollLeft;
-				}
-
-				if (scrollTop < self.__minDecelerationScrollTop) {
-					scrollOutsideY = self.__minDecelerationScrollTop - scrollTop;
-				} else if (scrollTop > self.__maxDecelerationScrollTop) {
-					scrollOutsideY = self.__maxDecelerationScrollTop - scrollTop;
+				if (scrollOffset < self.__minDecelerationScrollOffset) {
+					scrollOutside = self.__minDecelerationScrollOffset - scrollOffset;
+				} else if (scrollOffset > self.__maxDecelerationScrollOffset) {
+					scrollOutside = self.__maxDecelerationScrollOffset - scrollOffset;
 				}
 
 				// Slow down until slow enough, then flip back to snap position
-				if (scrollOutsideX !== 0) {
-					if (scrollOutsideX * self.__decelerationVelocityX <= 0) {
-						self.__decelerationVelocityX += scrollOutsideX * penetrationDeceleration;
+				if (scrollOutside !== 0) {
+					if (scrollOutside * self.__decelerationVelocity <= 0) {
+						self.__decelerationVelocity += scrollOutside * penetrationDeceleration;
 					} else {
-						self.__decelerationVelocityX = scrollOutsideX * penetrationAcceleration;
-					}
-				}
-
-				if (scrollOutsideY !== 0) {
-					if (scrollOutsideY * self.__decelerationVelocityY <= 0) {
-						self.__decelerationVelocityY += scrollOutsideY * penetrationDeceleration;
-					} else {
-						self.__decelerationVelocityY = scrollOutsideY * penetrationAcceleration;
+						self.__decelerationVelocity = scrollOutside * penetrationAcceleration;
 					}
 				}
 			}

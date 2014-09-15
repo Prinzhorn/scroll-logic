@@ -6,9 +6,13 @@ var EasyScroller = function(content, options) {
 
 	// create Scroller instance
 	var that = this;
-	this.scroller = new Scroller(function(left, top) {
-		that.render(left, top);
-	}, options);
+	this.scroller = new Scroller(options);
+
+
+	window.setInterval(function() {
+	console.log(that.scroller.__scrollOffset);
+		that.render(that.scroller.__scrollOffset);
+	}, 1000/60);
 
 	// bind events
 	this.bindEvents();
@@ -51,21 +55,20 @@ EasyScroller.prototype.render = (function() {
 
 	if (helperElem.style[perspectiveProperty] !== undef) {
 
-		return function(left, top) {
-			this.content.style[transformProperty] = 'translate3d(' + (-left) + 'px,' + (-top) + 'px,0)';
+		return function(offset) {
+			this.content.style[transformProperty] = 'translate3d(0, ' + (-offset) + 'px, 0)';
 		};
 
 	} else if (helperElem.style[transformProperty] !== undef) {
 
-		return function(left, top) {
-			this.content.style[transformProperty] = 'translate(' + (-left) + 'px,' + (-top) + 'px)';
+		return function(offset) {
+			this.content.style[transformProperty] = 'translate(0, ' + (-offset) + 'px)';
 		};
 
 	} else {
 
-		return function(left, top, zoom) {
-			this.content.style.marginLeft = left ? (-left) + 'px' : '';
-			this.content.style.marginTop = top ? (-top) + 'px' : '';
+		return function(offset) {
+			this.content.style.marginTop = (-offset) + 'px';
 		};
 
 	}
@@ -74,7 +77,7 @@ EasyScroller.prototype.render = (function() {
 EasyScroller.prototype.reflow = function() {
 
 	// set the right scroller dimensions
-	this.scroller.setDimensions(this.container.clientWidth, this.container.clientHeight, this.content.offsetWidth, this.content.offsetHeight);
+	this.scroller.setDimensions(this.container.clientHeight, this.content.offsetHeight);
 
 };
 
@@ -176,22 +179,14 @@ EasyScroller.prototype.bindEvents = function() {
 // automatically attach an EasyScroller to elements found with the right data attributes
 document.addEventListener("DOMContentLoaded", function() {
 
-	var elements = document.querySelectorAll('[data-scrollable],[data-zoomable]'), element;
+	var elements = document.querySelectorAll('[data-scrollable]'), element;
 	for (var i = 0; i < elements.length; i++) {
 
 		element = elements[i];
-		var scrollable = element.dataset.scrollable;
-		var zoomable = element.dataset.zoomable || '';
-		var zoomOptions = zoomable.split('-');
-		var minZoom = zoomOptions.length > 1 && parseFloat(zoomOptions[0]);
-		var maxZoom = zoomOptions.length > 1 && parseFloat(zoomOptions[1]);
 
 		new EasyScroller(element, {
-			scrollingX: scrollable === 'true' || scrollable === 'x',
-			scrollingY: scrollable === 'true' || scrollable === 'y',
-			zooming: zoomable === 'true' || zoomOptions.length > 1,
-			minZoom: minZoom,
-			maxZoom: maxZoom
+			bouncing: false,
+			animating: false
 		});
 
 	};
