@@ -371,26 +371,6 @@ var Scroller;
 		},
 
 
-		/**
-		 * Scroll by the given offset
-		 *
-		 * @param left {Number ? 0} Scroll x-axis by given offset
-		 * @param top {Number ? 0} Scroll x-axis by given offset
-		 * @param animate {Boolean ? false} Whether to animate the given change
-		 */
-		scrollBy: function(left, top, animate) {
-
-			var self = this;
-
-			var startLeft = self.__isAnimating ? self.__scheduledLeft : self.__scrollLeft;
-			var startTop = self.__isAnimating ? self.__scheduledTop : self.__scrollTop;
-
-			self.scrollTo(startLeft + (left || 0), startTop + (top || 0), animate);
-
-		},
-
-
-
 		/*
 		---------------------------------------------------------------------------
 			EVENT CALLBACKS
