@@ -10,7 +10,7 @@ var EasyScroller = function(content, options) {
 
 
 	window.setInterval(function() {
-	console.log(that.scroller.__scrollOffset);
+		//console.log(that.scroller.__scrollOffset);
 		that.render(that.scroller.__scrollOffset);
 	}, 1000/60);
 
@@ -100,13 +100,13 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchStart(e.touches, e.timeStamp);
+			that.scroller.doTouchStart(e.touches[0].pageY, e.timeStamp);
 			e.preventDefault();
 
 		}, false);
 
 		document.addEventListener("touchmove", function(e) {
-			that.scroller.doTouchMove(e.touches, e.timeStamp, e.scale);
+			that.scroller.doTouchMove(e.touches[0].pageY, e.timeStamp);
 		}, false);
 
 		document.addEventListener("touchend", function(e) {
@@ -128,10 +128,7 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchStart([{
-				pageX: e.pageX,
-				pageY: e.pageY
-			}], e.timeStamp);
+			that.scroller.doTouchStart(e.pageY, e.timeStamp);
 
 			mousedown = true;
 			e.preventDefault();
@@ -144,10 +141,7 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchMove([{
-				pageX: e.pageX,
-				pageY: e.pageY
-			}], e.timeStamp);
+			that.scroller.doTouchMove(e.pageY, e.timeStamp);
 
 			mousedown = true;
 
@@ -164,14 +158,6 @@ EasyScroller.prototype.bindEvents = function() {
 			mousedown = false;
 
 		}, false);
-
-		this.container.addEventListener("mousewheel", function(e) {
-			if(that.options.zooming) {
-				that.scroller.doMouseZoom(e.wheelDelta, e.timeStamp, e.pageX, e.pageY);
-				e.preventDefault();
-			}
-		}, false);
-
 	}
 
 };

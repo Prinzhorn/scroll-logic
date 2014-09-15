@@ -263,7 +263,7 @@ var Scroller;
 		/**
 		 * Touch start handler for scrolling support
 		 */
-		doTouchStart: function(touches, timeStamp) {
+		doTouchStart: function(offset, timeStamp) {
 			var self = this;
 
 			// Reset interruptedAnimation flag
@@ -283,16 +283,11 @@ var Scroller;
 				self.__interruptedAnimation = true;
 			}
 
-			// Use center point when dealing with two fingers
-			var currentTouchOffset;
-
-			currentTouchOffset = touches[0].pageX;
-
 			// Store initial positions
-			self.__initialTouchOffset = currentTouchOffset;
+			self.__initialTouchOffset = offset;
 
 			// Store initial touch positions
-			self.__lastTouchOffset = currentTouchOffset;
+			self.__lastTouchOffset = offset;
 
 			// Store initial move time stamp
 			self.__lastTouchMove = timeStamp;
@@ -315,7 +310,7 @@ var Scroller;
 		/**
 		 * Touch move handler for scrolling support
 		 */
-		doTouchMove: function(touches, timeStamp) {
+		doTouchMove: function(offset, timeStamp) {
 
 			var self = this;
 
@@ -324,17 +319,15 @@ var Scroller;
 				return;
 			}
 
-
-			var currentTouchOffset = touches[0].pageX;
 			var positions = self.__positions;
 
 			// Are we already is dragging mode?
 			if (self.__isDragging) {
 
 				// Compute move distance
-				var distance = currentTouchOffset - self.__lastTouchOffset;
+				var distance = offset - self.__lastTouchOffset;
 
-				// Read previous scroll position
+				// Update the position
 				var newOffset = self.__scrollOffset - distance;
 
 				// Scrolling past one of the edges.
@@ -374,10 +367,9 @@ var Scroller;
 
 			// Otherwise figure out whether we are switching into dragging mode now.
 			} else {
-
 				var minimumTrackingForDrag = 5;
 
-				var completeDistance = Math.abs(currentTouchOffset - self.__initialTouchOffset);
+				var completeDistance = Math.abs(offset - self.__initialTouchOffset);
 
 				positions.push(self.__scrollOffset, timeStamp);
 
@@ -390,7 +382,7 @@ var Scroller;
 			}
 
 			// Update last touch positions and time stamp for next event
-			self.__lastTouchOffset = currentTouchOffset;
+			self.__lastTouchOffset = offset;
 			self.__lastTouchMove = timeStamp;
 
 		},
