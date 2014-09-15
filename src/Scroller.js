@@ -25,12 +25,6 @@ var Scroller;
 
 		this.options = {
 
-			/** Enable scrolling on x-axis */
-			scrollingX: true,
-
-			/** Enable scrolling on y-axis */
-			scrollingY: true,
-
 			/** Enable animations for deceleration, snap back and scrolling */
 			animating: true,
 
@@ -49,10 +43,10 @@ var Scroller;
 			scrollingComplete: NOOP,
 
 			/** This configures the amount of change applied to deceleration when reaching boundaries  **/
-            penetrationDeceleration : 0.03,
+			penetrationDeceleration : 0.03,
 
-            /** This configures the amount of change applied to acceleration when reaching boundaries  **/
-            penetrationAcceleration : 0.08
+			/** This configures the amount of change applied to acceleration when reaching boundaries  **/
+			penetrationAcceleration : 0.08
 
 		};
 
@@ -127,12 +121,6 @@ var Scroller;
 			INTERNAL FIELDS :: DIMENSIONS
 		---------------------------------------------------------------------------
 		*/
-
-		/** {Integer} Available outer left position (from document perspective) */
-		__clientLeft: 0,
-
-		/** {Integer} Available outer top position (from document perspective) */
-		__clientTop: 0,
 
 		/** {Integer} Available outer width */
 		__clientWidth: 0,
@@ -259,22 +247,6 @@ var Scroller;
 
 
 		/**
-		 * Sets the client coordinates in relation to the document.
-		 *
-		 * @param left {Integer ? 0} Left position of outer element
-		 * @param top {Integer ? 0} Top position of outer element
-		 */
-		setPosition: function(left, top) {
-
-			var self = this;
-
-			self.__clientLeft = left || 0;
-			self.__clientTop = top || 0;
-
-		},
-
-
-		/**
 		 * Returns the scroll position
 		 *
 		 * @return {Map} `left` and `top` scroll position
@@ -325,17 +297,8 @@ var Scroller;
 				self.__isDecelerating = false;
 			}
 
-			if (!self.options.scrollingX) {
-
-				left = self.__scrollLeft;
-
-			}
-
-			if (!self.options.scrollingY) {
-
-				top = self.__scrollTop;
-
-			}
+			left = self.__scrollLeft;
+			top = self.__scrollTop;
 
 			// Limit for allowed ranges
 			left = Math.max(Math.min(self.__maxScrollLeft, left), 0);
@@ -640,7 +603,7 @@ var Scroller;
 					}
 				} else if ((timeStamp - self.__lastTouchMove) > 100) {
 					self.options.scrollingComplete();
-	 			}
+				}
 			}
 
 			// If this was a slower move it is per default non decelerated, but this

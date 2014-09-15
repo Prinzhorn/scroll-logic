@@ -76,10 +76,6 @@ EasyScroller.prototype.reflow = function() {
 	// set the right scroller dimensions
 	this.scroller.setDimensions(this.container.clientWidth, this.container.clientHeight, this.content.offsetWidth, this.content.offsetHeight);
 
-	// refresh the position for zooming purposes
-	var rect = this.container.getBoundingClientRect();
-	this.scroller.setPosition(rect.left + this.container.clientLeft, rect.top + this.container.clientTop);
-
 };
 
 EasyScroller.prototype.bindEvents = function() {
