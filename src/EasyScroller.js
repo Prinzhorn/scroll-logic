@@ -100,21 +100,21 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchStart(e.touches[0].pageY, e.timeStamp);
+			that.scroller.beginInteraction(e.touches[0].pageY, e.timeStamp);
 			e.preventDefault();
 
 		}, false);
 
 		document.addEventListener("touchmove", function(e) {
-			that.scroller.doTouchMove(e.touches[0].pageY, e.timeStamp);
+			that.scroller.interact(e.touches[0].pageY, e.timeStamp);
 		}, false);
 
 		document.addEventListener("touchend", function(e) {
-			that.scroller.doTouchEnd(e.timeStamp);
+			that.scroller.endInteraction(e.timeStamp);
 		}, false);
 
 		document.addEventListener("touchcancel", function(e) {
-			that.scroller.doTouchEnd(e.timeStamp);
+			that.scroller.endInteraction(e.timeStamp);
 		}, false);
 
 	// non-touch bind mouse events
@@ -128,7 +128,7 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchStart(e.pageY, e.timeStamp);
+			that.scroller.beginInteraction(e.pageY, e.timeStamp);
 
 			mousedown = true;
 			e.preventDefault();
@@ -141,7 +141,7 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchMove(e.pageY, e.timeStamp);
+			that.scroller.interact(e.pageY, e.timeStamp);
 
 			mousedown = true;
 
@@ -153,7 +153,7 @@ EasyScroller.prototype.bindEvents = function() {
 				return;
 			}
 
-			that.scroller.doTouchEnd(e.timeStamp);
+			that.scroller.endInteraction(e.timeStamp);
 
 			mousedown = false;
 
@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		element = elements[i];
 
 		new EasyScroller(element, {
-			bouncing: true,
+			bouncing: false,
 			animating: true
 		});
 

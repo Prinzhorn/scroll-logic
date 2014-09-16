@@ -16,6 +16,10 @@
 var Scroller;
 
 (function() {
+	// How much velocity is required to start the deceleration.
+	// This keeps the scroller from animating if the user is just slowly scrolling through.
+	var MIN_VELOCITY_FOR_DECELERATION = 1;
+
 	var NOOP = function(){};
 
 	/**
@@ -85,7 +89,7 @@ var Scroller;
 		*/
 
 		/** {Boolean} Whether a touch event sequence is in progress */
-		__isTracking: false,
+		__isInteracting: false,
 
 		/** {Boolean} Whether a deceleration animation went to completion. */
 		__didDecelerationComplete: false,
@@ -284,9 +288,9 @@ var Scroller;
 
 
 		/**
-		 * Touch start handler for scrolling support
+		 * Begin a new interaction with the scroller.
 		 */
-		doTouchStart: function(offset, timeStamp) {
+		beginInteraction: function(offset, timeStamp) {
 			var self = this;
 
 			// Reset interruptedAnimation flag
@@ -315,7 +319,7 @@ var Scroller;
 			self.__lastTouchMove = timeStamp;
 
 			// Reset tracking flag
-			self.__isTracking = true;
+			self.__isInteracting = true;
 
 			// Reset deceleration complete flag
 			self.__didDecelerationComplete = false;
@@ -330,14 +334,14 @@ var Scroller;
 
 
 		/**
-		 * Touch move handler for scrolling support
+		 * A new user interaction with the scroller
 		 */
-		doTouchMove: function(offset, timeStamp) {
+		interact: function(offset, timeStamp) {
 
 			var self = this;
 
 			// Ignore event when tracking is not enabled (event might be outside of element)
-			if (!self.__isTracking) {
+			if (!self.__isInteracting) {
 				return;
 			}
 
@@ -412,20 +416,20 @@ var Scroller;
 
 
 		/**
-		 * Touch end handler for scrolling support
+		 * Stop the user interaction
 		 */
-		doTouchEnd: function(timeStamp) {
+		endInteraction: function(timeStamp) {
 
 			var self = this;
 
 			// Ignore event when tracking is not enabled (no touchstart event on element)
 			// This is required as this listener ('touchmove') sits on the document and not on the element itself.
-			if (!self.__isTracking) {
+			if (!self.__isInteracting) {
 				return;
 			}
 
 			// Not touching anymore (when two finger hit the screen there are two touch end events)
-			self.__isTracking = false;
+			self.__isInteracting = false;
 
 			// Be sure to reset the dragging flag now. Here we also detect whether
 			// the finger has moved fast enough to switch into a deceleration animation.
@@ -460,11 +464,8 @@ var Scroller;
 						// Based on 50ms compute the movement to apply for each render step
 						self.__decelerationVelocity = movedOffset / timeOffset * (1000 / 60);
 
-						// How much velocity is required to start the deceleration
-						var minVelocityToStartDeceleration = 1;
-
 						// Verify that we have enough velocity to start deceleration
-						if (Math.abs(self.__decelerationVelocity) > minVelocityToStartDeceleration) {
+						if (Math.abs(self.__decelerationVelocity) > MIN_VELOCITY_FOR_DECELERATION) {
 							self.__startDeceleration(timeStamp);
 						}
 					} else {
