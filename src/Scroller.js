@@ -164,12 +164,6 @@ var Scroller;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Integer} Minimum scroll position during deceleration */
-		__minDecelerationScrollOffset: null,
-
-		/** {Integer} Maximum scroll position during deceleration */
-		__maxDecelerationScrollOffset: null,
-
 		/** {Number} Current factor to modify scroll position with on every step */
 		__decelerationVelocity: null,
 
@@ -558,9 +552,6 @@ var Scroller;
 
 			var self = this;
 
-			self.__minDecelerationScrollOffset = 0;
-			self.__maxDecelerationScrollOffset = self.__maxScrollOffset;
-
 			// Wrap class method
 			var step = function(percent, now, render) {
 				self.__stepThroughDeceleration(render);
@@ -620,7 +611,8 @@ var Scroller;
 
 			if (!self.options.bouncing) {
 
-				var scrollOffsetFixed = Math.max(Math.min(self.__maxDecelerationScrollOffset, scrollOffset), self.__minDecelerationScrollOffset);
+				var scrollOffsetFixed = Math.max(Math.min(self.__maxScrollOffset, scrollOffset), 0);
+
 				if (scrollOffsetFixed !== scrollOffset) {
 					scrollof = scrollOffsetFixed;
 					self.__decelerationVelocity = 0;
@@ -668,10 +660,10 @@ var Scroller;
 				var penetrationAcceleration = self.options.penetrationAcceleration;
 
 				// Check limits
-				if (scrollOffset < self.__minDecelerationScrollOffset) {
-					scrollOutside = self.__minDecelerationScrollOffset - scrollOffset;
-				} else if (scrollOffset > self.__maxDecelerationScrollOffset) {
-					scrollOutside = self.__maxDecelerationScrollOffset - scrollOffset;
+				if (scrollOffset < 0) {
+					scrollOutside = -scrollOffset;
+				} else if (scrollOffset > self.__maxScrollOffset) {
+					scrollOutside = self.__maxScrollOffset - scrollOffset;
 				}
 
 				// Slow down until slow enough, then flip back to snap position
