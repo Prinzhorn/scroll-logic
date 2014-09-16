@@ -11,7 +11,7 @@ var EasyScroller = function(content, options) {
 	//Yeah, that's just there as a quick hack.
 	window.setInterval(function() {
 		//console.log(that.scroller.__scrollOffset);
-		that.render(that.scroller.__scrollOffset);
+		that.render(that.scroller.getOffset());
 	}, 1000/60);
 
 	// bind events

@@ -110,8 +110,8 @@ var Scroller;
 		__deceleration: null,
 
 		/**
-		 * {Integer} Smoothly animating the currently configured change.
-		 * Contains the ID of the animation.
+		 * {Object} Smoothly animating the currently configured change.
+		 * Contains the configuration of the animation.
 		 */
 		__animation: null,
 
@@ -134,10 +134,6 @@ var Scroller;
 
 		/** {Integer} Maximum allowed scroll position */
 		__maxScrollOffset: 0,
-
-		/* {Number} Scheduled position (final position when animating) */
-		__scheduledOffset: 0,
-
 
 
 		/*
@@ -217,15 +213,33 @@ var Scroller;
 		 * Calculates and returns the current scroll position.
 		 */
 		getOffset: function() {
-			//If no animation is running, simply return this thing!
-			if(!this.__animation) {
-				return this.__scrollOffset;
+			var animation = this.__animation;
+			var now;
+			var percentage;
+			var newOffset;
+
+			if(animation) {
+				//An animation is currently running, this is the trickier part.
+				//Based on the current time, the start/end time of the animation and the easing function,
+				//we can calculate the desired offset.
+				now = Date.now();
+				percentage = animation.easing((now - animation.start) / animation.duration);
+
+				//The animation is finished by now, clear the animation and use the animation's target offset.
+				if(percentage >= 1) {
+					this.__scrollOffset = animation.from + animation.delta;
+					delete this.__animation;
+				}
+				//The animation is still running, calculate the current position.
+				else {
+					newOffset = animation.from + (animation.delta * percentage);
+
+					//We only want integer offsets, anything else does not make sense.
+					this.__scrollOffset = (newOffset + 0.5) | 0;
+				}
 			}
 
-			//An animation is currently running. This is the tricky part.
-			//Based on the current time, the start/end time of the animation and the easing function,
-			//we can calculate the desired offset.
-			var timeStamp = Date.now();
+			return this.__scrollOffset;
 		},
 
 
@@ -297,7 +311,6 @@ var Scroller;
 
 			// Stop animation
 			if (self.__animation) {
-				core.effect.Animate.stop(self.__animation);
 				delete self.__animation;
 				self.__interruptedAnimation = true;
 			}
@@ -511,43 +524,25 @@ var Scroller;
 			var self = this;
 
 			// Remember whether we had an animation, then we try to continue based on the current "drive" of the animation
-			var wasAnimating = self.__animation;
+			var wasAnimating = !!self.__animation;
+
 			if (wasAnimating) {
-				core.effect.Animate.stop(wasAnimating);
 				delete self.__animation;
 			}
 
 			if (animate && self.options.animating) {
 
-				// Keep scheduled positions for scrollBy functionality
-				self.__scheduledOffset = newOffset;
-
 				var oldOffset = self.__scrollOffset;
-
 				var deltaOffset = newOffset - oldOffset;
 
-				var step = function(percent, now, render) {
-
-					self.__scrollOffset = oldOffset + (deltaOffset * percent);
-
-				};
-
-				var verify = function(id) {
-					return self.__animation === id;
-				};
-
-				var completed = function(animationId, wasFinished) {
-					if (animationId === self.__animation) {
-						delete self.__animation;
-					}
-
-					if (self.__didDecelerationComplete || wasFinished) {
-						self.options.scrollingComplete();
-					}
-				};
-
 				// When continuing based on previous animation we choose an ease-out animation instead of ease-in-out
-				self.__animation = core.effect.Animate.start(step, verify, completed, self.options.animationDuration, wasAnimating ? easeOutCubic : easeInOutCubic);
+				self.__animation = {
+					start: Date.now(),
+					duration: self.options.animationDuration,
+					easing: wasAnimating ? easeOutCubic : easeInOutCubic,
+					from: oldOffset,
+					delta: deltaOffset
+				};
 
 			} else {
 
