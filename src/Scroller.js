@@ -186,8 +186,8 @@ var Scroller;
 
 			var self = this;
 
-			self.__containerLength = containerLength;
-			self.__contentLength = contentLength;
+			self.__containerLength = (containerLength + 0.5) | 0;
+			self.__contentLength = (contentLength + 0.5) | 0;
 
 			// Refresh maximums
 			self.__maxScrollOffset = Math.max(contentLength - containerLength, 0);
@@ -229,7 +229,6 @@ var Scroller;
 				}
 			}
 
-			//TODO: make sure everyone who writes to this value makes it an integer. E.g. interact()
 			return this.__scrollOffset;
 		},
 
@@ -382,6 +381,9 @@ var Scroller;
 				if (positions.length > 60) {
 					positions.splice(0, 30);
 				}
+
+				// Make sure this is an integer
+				newOffset = (newOffset + 0.5) | 0;
 
 				// Track scroll movement for decleration
 				positions.push(newOffset, timeStamp);

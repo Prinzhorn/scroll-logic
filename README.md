@@ -3,7 +3,7 @@ ScrollLogic
 
 This project is based on [zynga/scroller](https://github.com/zynga/scroller) which was not maintained any longer. This repo **does not have much in common** with the original though. It's a radically stripped down and optimized version which serves only one purpose.
 
-It's a pure logic component for one-axis decelerated scrolling, imitating the way mobile devices do native scrolling. No render loop, no zooming, no snapping. It only serves a single purpose: providing the most accurate and high-performance backbone for your scrolling needs. It does not seem very useful on it's own, but I needed exactly that for _[enter project website as soon as it's public ;)]_.
+It's a pure logic component for one-axis decelerated scrolling, imitating the way mobile devices do native scrolling. No render loop, no zooming, no snapping, no paging. It only serves a single purpose: providing the most accurate and high-performance backbone for your scrolling needs. It does not seem very useful on it's own, but I needed exactly that for _[enter project name as soon as it's public ;)]_. Since scroll-logic does not contain any rendering loop, it does not do _anything_ unless you request something from it (see `getOffset` below).
 
 
 Usage
