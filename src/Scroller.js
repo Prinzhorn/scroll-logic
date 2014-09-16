@@ -20,7 +20,9 @@ var Scroller;
 	// This keeps the scroller from animating if the user is just slowly scrolling through.
 	var MIN_VELOCITY_FOR_DECELERATION = 1;
 
-	var NOOP = function(){};
+	// The minimum distance before we start dragging.
+	// This keeps small taps from moving the scroller.
+	var DRAG_DISTANCE_THREESHOLD = 5;
 
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
@@ -233,6 +235,7 @@ var Scroller;
 				}
 			}
 
+			//TODO: make sure everyone who writes to this value makes it an integer. E.g. interact()
 			return this.__scrollOffset;
 		},
 
@@ -394,13 +397,11 @@ var Scroller;
 
 			// Otherwise figure out whether we are switching into dragging mode now.
 			} else {
-				var minimumTrackingForDrag = 5;
-
 				var completeDistance = Math.abs(offset - self.__initialTouchOffset);
 
 				positions.push(currentOffset, timeStamp);
 
-				self.__isDragging = (completeDistance >= minimumTrackingForDrag);
+				self.__isDragging = (completeDistance >= DRAG_DISTANCE_THREESHOLD);
 
 				if (self.__isDragging) {
 					self.__interruptedAnimation = false;
