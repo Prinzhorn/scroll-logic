@@ -430,33 +430,39 @@ var Scroller;
 
 			// Be sure to reset the dragging flag now. Here we also detect whether
 			// the finger has moved fast enough to switch into a deceleration animation.
-			if (self.__isDragging) {
+			if (self.__isDragging && self.options.animating) {
 
-				// Reset dragging flag
-				self.__isDragging = false;
+				var lastTouchMove = self.__lastTouchMove;
 
 				// Start deceleration
 				// Verify that the last move detected was in some relevant time frame
 				//TODO: remove magic number 100
-				if (self.options.animating && (timeStamp - self.__lastTouchMove) <= 100) {
+				if(timeStamp - lastTouchMove <= 100) {
 
 					// Then figure out what the scroll position was about 100ms ago
 					var positions = self.__positions;
-					var endPos = positions.length - 1;
-					var startPos = endPos;
+					var positionsIndexEnd = positions.length - 1;
+					var positionsIndexStart = positionsIndexEnd;
+					var positionsIndex = positionsIndexEnd;
 
 					// Move pointer to position measured 100ms ago
-					for (var i = endPos; i > 0 && positions[i] > (self.__lastTouchMove - 100); i -= 2) {
-						startPos = i;
+					// The positions array contains alternating offset/timeStamp pairs.
+					for (; positionsIndex > 0; positionsIndex = positionsIndex - 2) {
+						// Did we go back far enough and found the position 100ms ago?
+						if(positions[positionsIndex] <= (lastTouchMove - 100)) {
+							break;
+						}
+
+						positionsIndexStart = positionsIndex;
 					}
 
 					// If start and stop position is identical in a 100ms timeframe,
 					// we cannot compute any useful deceleration.
-					if (startPos !== endPos) {
+					if (positionsIndexStart !== positionsIndexEnd) {
 
 						// Compute relative movement between these two points
-						var timeOffset = positions[endPos] - positions[startPos];
-						var movedOffset = self.__scrollOffset - positions[startPos - 1];
+						var timeOffset = positions[positionsIndexEnd] - positions[positionsIndexStart];
+						var movedOffset = self.__scrollOffset - positions[positionsIndexStart - 1];
 
 						// Based on 50ms compute the movement to apply for each render step
 						self.__decelerationVelocity = movedOffset / timeOffset * (1000 / 60);
@@ -468,9 +474,11 @@ var Scroller;
 					} else {
 						self.__scrollingComplete = true;
 					}
-				} else if ((timeStamp - self.__lastTouchMove) > 100) {
+
+				} else {
 					self.__scrollingComplete = true;
 				}
+
 			}
 
 			// If this was a slower move it is per default non decelerated, but this
@@ -486,6 +494,9 @@ var Scroller;
 
 				self.scrollTo(self.__scrollOffset, true);
 			}
+
+			// Reset dragging flag
+			self.__isDragging = false;
 
 			// Fully cleanup list
 			self.__positions.length = 0;
