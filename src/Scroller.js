@@ -299,20 +299,15 @@ var Scroller;
 		doTouchStart: function(offset, timeStamp) {
 			var self = this;
 
-			// Reset interruptedAnimation flag
-			self.__interruptedAnimation = true;
-
 			// Stop deceleration
 			if (self.__deceleration) {
 				core.effect.Animate.stop(self.__deceleration);
 				delete self.__deceleration;
-				self.__interruptedAnimation = true;
 			}
 
 			// Stop animation
 			if (self.__animation) {
 				delete self.__animation;
-				self.__interruptedAnimation = true;
 			}
 
 			// Store initial positions
@@ -408,10 +403,6 @@ var Scroller;
 
 				self.__isDragging = (completeDistance >= minimumTrackingForDrag);
 
-				if (self.__isDragging) {
-					self.__interruptedAnimation = false;
-				}
-
 			}
 
 			// Update last touch positions and time stamp for next event
@@ -492,11 +483,8 @@ var Scroller;
 			// have modified the scroll positions or even showed the scrollbars though.
 			if (!self.__deceleration) {
 
-				if (self.__interruptedAnimation || self.__isDragging) {
-					self.options.scrollingComplete();
-				}
-
 				self.scrollTo(self.__scrollOffset, true);
+
 			}
 
 			// Fully cleanup list
