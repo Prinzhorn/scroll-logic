@@ -22,7 +22,7 @@ var Scroller;
 
 	// The minimum distance before we start dragging.
 	// This keeps small taps from moving the scroller.
-	var DRAG_DISTANCE_THREESHOLD = 5;
+	var MIN_DRAG_DISTANCE = 5;
 
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
@@ -78,7 +78,7 @@ var Scroller;
 		//It would simply be return easeOutCubic(p);
 		pos = pos - 1;
 
-		return 4 * pos * pos * pos + 1
+		return 4 * pos * pos * pos + 1;
 	};
 
 
@@ -224,7 +224,7 @@ var Scroller;
 				if(percentage >= 1) {
 					this.__scrollOffset = animation.from + animation.delta;
 					this.__scrollingComplete = true;
-					delete this.__animation;
+					this.__animation = null;
 				}
 				//The animation is still running, calculate the current position.
 				else {
@@ -265,7 +265,7 @@ var Scroller;
 			// Stop deceleration
 			if (self.__deceleration) {
 				core.effect.Animate.stop(self.__deceleration);
-				delete self.__deceleration;
+				self.__deceleration = null;
 			}
 
 			// Limit for allowed ranges
@@ -302,13 +302,13 @@ var Scroller;
 			// Stop deceleration
 			if (self.__deceleration) {
 				core.effect.Animate.stop(self.__deceleration);
-				delete self.__deceleration;
+				self.__deceleration = null;
 				self.__interruptedAnimation = true;
 			}
 
 			// Stop animation
 			if (self.__animation) {
-				delete self.__animation;
+				self.__animation = null;
 				self.__interruptedAnimation = true;
 			}
 
@@ -401,7 +401,7 @@ var Scroller;
 
 				positions.push(currentOffset, timeStamp);
 
-				self.__isDragging = (completeDistance >= DRAG_DISTANCE_THREESHOLD);
+				self.__isDragging = (completeDistance >= MIN_DRAG_DISTANCE);
 
 				if (self.__isDragging) {
 					self.__interruptedAnimation = false;
@@ -519,7 +519,7 @@ var Scroller;
 			var wasAnimating = !!self.__animation;
 
 			if (wasAnimating) {
-				delete self.__animation;
+				self.__animation = null;
 			}
 
 			if (animate && self.options.animating) {
@@ -580,7 +580,8 @@ var Scroller;
 			};
 
 			var completed = function(animationId, wasFinished) {
-				delete self.__deceleration;
+				self.__deceleration = null;
+
 				if (self.__didDecelerationComplete) {
 					self.__scrollingComplete = true;
 				}
