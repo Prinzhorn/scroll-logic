@@ -33,11 +33,6 @@ var Scroller;
 			/** Enable bouncing (content can be slowly moved outside and jumps back after releasing) */
 			bouncing: true,
 
-			/** Callback that is fired on the later of touch end or deceleration end,
-				provided that another scrolling action has not begun. Used to know
-				when to fade out a scrollbar. */
-			scrollingComplete: NOOP,
-
 			/** This configures the amount of change applied to deceleration when reaching boundaries  **/
 			penetrationDeceleration : 0.03,
 
@@ -94,6 +89,10 @@ var Scroller;
 
 		/** {Boolean} Whether a deceleration animation went to completion. */
 		__didDecelerationComplete: false,
+
+
+		/** {Boolean} Whether scrolling is currently done and not doing anything. */
+		__scrollingComplete: true,
 
 
 		/**
@@ -200,16 +199,6 @@ var Scroller;
 
 
 		/**
-		 * Returns the scroll position
-		 */
-		getValues: function() {
-
-			return this.__scrollOffset;
-
-		},
-
-
-		/**
 		 * Calculates and returns the current scroll position.
 		 */
 		getOffset: function() {
@@ -228,6 +217,7 @@ var Scroller;
 				//The animation is finished by now, clear the animation and use the animation's target offset.
 				if(percentage >= 1) {
 					this.__scrollOffset = animation.from + animation.delta;
+					this.__scrollingComplete = true;
 					delete this.__animation;
 				}
 				//The animation is still running, calculate the current position.
@@ -299,15 +289,20 @@ var Scroller;
 		doTouchStart: function(offset, timeStamp) {
 			var self = this;
 
+			// Reset interruptedAnimation flag
+			self.__interruptedAnimation = true;
+
 			// Stop deceleration
 			if (self.__deceleration) {
 				core.effect.Animate.stop(self.__deceleration);
 				delete self.__deceleration;
+				self.__interruptedAnimation = true;
 			}
 
 			// Stop animation
 			if (self.__animation) {
 				delete self.__animation;
+				self.__interruptedAnimation = true;
 			}
 
 			// Store initial positions
@@ -403,6 +398,10 @@ var Scroller;
 
 				self.__isDragging = (completeDistance >= minimumTrackingForDrag);
 
+				if (self.__isDragging) {
+					self.__interruptedAnimation = false;
+				}
+
 			}
 
 			// Update last touch positions and time stamp for next event
@@ -469,10 +468,10 @@ var Scroller;
 							self.__startDeceleration(timeStamp);
 						}
 					} else {
-						self.options.scrollingComplete();
+						self.__scrollingComplete = true;
 					}
 				} else if ((timeStamp - self.__lastTouchMove) > 100) {
-					self.options.scrollingComplete();
+					self.__scrollingComplete = true;
 				}
 			}
 
@@ -483,8 +482,11 @@ var Scroller;
 			// have modified the scroll positions or even showed the scrollbars though.
 			if (!self.__deceleration) {
 
-				self.scrollTo(self.__scrollOffset, true);
+				if (self.__interruptedAnimation || self.__isDragging) {
+					self.__scrollingComplete = true;
+				}
 
+				self.scrollTo(self.__scrollOffset, true);
 			}
 
 			// Fully cleanup list
@@ -578,7 +580,7 @@ var Scroller;
 			var completed = function(animationId, wasFinished) {
 				delete self.__deceleration;
 				if (self.__didDecelerationComplete) {
-					self.options.scrollingComplete();
+					self.__scrollingComplete = true;
 				}
 
 				// Animate to grid when snapping is active, otherwise just fix out-of-boundary positions
