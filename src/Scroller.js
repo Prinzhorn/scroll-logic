@@ -24,6 +24,15 @@ var Scroller;
 	// This keeps small taps from moving the scroller.
 	var MIN_DRAG_DISTANCE = 5;
 
+	// The minimum velocity (in pixels per frame) after which we terminate the deceleration.
+	var MIN_VELOCITY_BEFORE_TERMINATING = 0.1;
+
+	// ScrollLogic doesn't care about fps, but this contant makes some of the math easier to understand.
+	var FPS = 60;
+
+	// The velocity changes by this amount every frame.
+	var FRICTION_PER_FRAME = 0.95;
+
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
 	 */
@@ -57,30 +66,32 @@ var Scroller;
 	// Open source under the BSD License.
 	// Optimized and refactored by @Prinzhorn. Also I don't think you can apply a license to such a tiny bit of math.
 
-	/**
-	 * @param pos {Number} position between 0 (start of effect) and 1 (end of effect)
-	**/
 	var easeOutCubic = function(pos) {
 		pos = pos - 1;
 
 		return pos * pos * pos + 1;
 	};
 
-	/**
-	 * @param pos {Number} position between 0 (start of effect) and 1 (end of effect)
-	**/
 	var easeInOutCubic = function(pos) {
 		if (pos < 0.5) {
 			return 4 * pos * pos * pos;
 		}
 
 		//The >= 0.5 case is the same as easeOutCubic, but I'm not interested in a function call here.
-		//It would simply be return easeOutCubic(p);
+		//It would simply be return easeOutCubic(p); if you want to.
 		pos = pos - 1;
 
 		return 4 * pos * pos * pos + 1;
 	};
 
+	var easeOutExpo = function (p) {
+		//Make sure to map 1.0 to 1.0, because the formula below doesn't exactly yield 1.0 but 0.999023
+		if(p === 1) {
+			return 1;
+		}
+
+		return 1 - Math.pow(2, -10 * p);
+	};
 
 	var members = {
 
@@ -107,12 +118,6 @@ var Scroller;
 		 * not interrupt with clicks etc.
 		 */
 		__isDragging: false,
-
-		/**
-		 * {Integer} Not touching and dragging anymore, and smoothly animating the
-		 * touch sequence using deceleration. Contains the ID of the animation.
-		 */
-		__deceleration: null,
 
 		/**
 		 * {Object} Smoothly animating the currently configured change.
@@ -216,13 +221,13 @@ var Scroller;
 
 				//The animation is finished by now, clear the animation and use the animation's target offset.
 				if(percentage >= 1) {
-					this.__scrollOffset = animation.from + animation.delta;
+					this.__scrollOffset = animation.from + animation.distance;
 					this.__scrollingComplete = true;
 					this.__animation = null;
 				}
 				//The animation is still running, calculate the current position.
 				else {
-					newOffset = animation.from + (animation.delta * percentage);
+					newOffset = animation.from + (animation.distance * percentage);
 
 					//We only want integer offsets, anything else does not make sense.
 					this.__scrollOffset = (newOffset + 0.5) | 0;
@@ -256,9 +261,8 @@ var Scroller;
 			var self = this;
 
 			// Stop deceleration
-			if (self.__deceleration) {
-				core.effect.Animate.stop(self.__deceleration);
-				self.__deceleration = null;
+			if (self.__animation) {
+				self.__animation = null;
 			}
 
 			// Limit for allowed ranges
@@ -291,13 +295,6 @@ var Scroller;
 
 			// Reset interruptedAnimation flag
 			self.__interruptedAnimation = true;
-
-			// Stop deceleration
-			if (self.__deceleration) {
-				core.effect.Animate.stop(self.__deceleration);
-				self.__deceleration = null;
-				self.__interruptedAnimation = true;
-			}
 
 			// Stop animation
 			if (self.__animation) {
@@ -486,7 +483,7 @@ var Scroller;
 			// This is placed outside the condition above to improve edge case stability
 			// e.g. touchend fired without enabled dragging. This should normally do not
 			// have modified the scroll positions or even showed the scrollbars though.
-			if (!self.__deceleration) {
+			if (!self.__animation) {
 
 				if (self.__interruptedAnimation || self.__isDragging) {
 					self.__scrollingComplete = true;
@@ -532,15 +529,15 @@ var Scroller;
 			if (animate && self.options.animating) {
 
 				var oldOffset = self.__scrollOffset;
-				var deltaOffset = newOffset - oldOffset;
+				var distance = newOffset - oldOffset;
 
-				// When continuing based on previous animation we choose an ease-out animation instead of ease-in-out
 				self.__animation = {
 					start: Date.now(),
 					duration: self.options.animationDuration,
+					// When continuing based on previous animation we choose an ease-out animation instead of ease-in-out
 					easing: wasAnimating ? easeOutCubic : easeInOutCubic,
 					from: oldOffset,
-					delta: deltaOffset
+					distance: distance
 				};
 
 			} else {
@@ -561,42 +558,29 @@ var Scroller;
 		 * Called when a touch sequence end and the speed of the finger was high enough
 		 * to switch into deceleration mode.
 		 */
-		__startDeceleration: function(timeStamp) {
+		__startDeceleration: function() {
 
 			var self = this;
 
-			// Wrap class method
-			var step = function(percent, now, render) {
-				self.__stepThroughDeceleration(render);
-			};
+			// Calculate the duration for the deceleration animation, which is a function of the start velocity.
+			// This formula simply means we apply FRICTION_PER_FRAME to the velocity every frame, until it is lower than MIN_VELOCITY_BEFORE_TERMINATING.
+			var durationInFrames = (Math.log(MIN_VELOCITY_BEFORE_TERMINATING) - Math.log(Math.abs(self.__decelerationVelocity))) / Math.log(FRICTION_PER_FRAME);
+			var duration = (durationInFrames / FPS) * 1000;
 
-			// How much velocity is required to keep the deceleration running
-			var minVelocityToKeepDecelerating = 0.1;
-
-			// Detect whether it's still worth to continue animating steps
-			// If we are already slow enough to not being user perceivable anymore, we stop the whole process here.
-			var verify = function() {
-				var shouldContinue = (Math.abs(self.__decelerationVelocity) >= minVelocityToKeepDecelerating);
-				if (!shouldContinue) {
-					self.__didDecelerationComplete = true;
-				}
-				return shouldContinue;
-			};
-
-			var completed = function(animationId, wasFinished) {
-				self.__deceleration = null;
-
-				if (self.__didDecelerationComplete) {
-					self.__scrollingComplete = true;
-				}
-
-				// Animate to grid when snapping is active, otherwise just fix out-of-boundary positions
-				self.scrollTo(self.__scrollOffset);
-			};
+			// Calculate the distance that the scroller will move during this duration.
+			// http://en.wikipedia.org/wiki/Geometric_series#Formula where N is the number of frames,
+			// because we terminate the series when the velocity drop below a minimum.
+			// This formula simply means that we add up the decelarating velocity (or the distance) every frame until we reach MIN_VELOCITY_BEFORE_TERMINATING.
+			var distance = self.__decelerationVelocity * ((1 - Math.pow(FRICTION_PER_FRAME, durationInFrames)) / (1 - FRICTION_PER_FRAME));
 
 			// Start animation and switch on flag
-			self.__deceleration = core.effect.Animate.start(step, verify, completed);
-
+			self.__animation = {
+				start: Date.now(),
+				duration: duration,
+				easing: easeOutExpo,
+				from: self.__scrollOffset,
+				distance: distance
+			};
 		},
 
 
@@ -605,6 +589,7 @@ var Scroller;
 		 *
 		 * @param inMemory {Boolean?false} Whether to not render the current step, but keep it in memory only. Used internally only!
 		 */
+		/*
 		__stepThroughDeceleration: function(render) {
 
 			var self = this;
@@ -617,7 +602,6 @@ var Scroller;
 			// Add deceleration to scroll position
 			var scrollOffset = self.__scrollOffset + self.__decelerationVelocity;
 
-
 			//
 			// HARD LIMIT SCROLL POSITION FOR NON BOUNCING MODE
 			//
@@ -627,7 +611,7 @@ var Scroller;
 				var scrollOffsetFixed = Math.max(Math.min(self.__maxScrollOffset, scrollOffset), 0);
 
 				if (scrollOffsetFixed !== scrollOffset) {
-					scrollof = scrollOffsetFixed;
+					scrollOffset = scrollOffsetFixed;
 					self.__decelerationVelocity = 0;
 				}
 
@@ -682,13 +666,14 @@ var Scroller;
 				// Slow down until slow enough, then flip back to snap position
 				if (scrollOutside !== 0) {
 					if (scrollOutside * self.__decelerationVelocity <= 0) {
-						self.__decelerationVelocity += scrollOutside * penetrationDeceleration;
+						self.__decelerationVelocity = self.__decelerationVelocity + scrollOutside * penetrationDeceleration;
 					} else {
 						self.__decelerationVelocity = scrollOutside * penetrationAcceleration;
 					}
 				}
 			}
 		}
+		*/
 	};
 
 	// Copy over members to prototype
