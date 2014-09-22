@@ -34,7 +34,7 @@ var ScrollLogic;
 	var FRICTION_PER_FRAME = 0.95;
 
 	// This means overscrolling is twice as hard than normal scrolling.
-	var EDGE_RESISTANCE = 2;
+	var EDGE_RESISTANCE = 3;
 
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
@@ -69,10 +69,6 @@ var ScrollLogic;
 	// Open source under the BSD License.
 	// Optimized and refactored by @Prinzhorn. Also I don't think you can apply a license to such a tiny bit of math.
 
-	var easeOutQuad = function(pos) {
-		return pos * (2 - pos);
-	};
-
 	var easeOutCubic = function(pos) {
 		pos = pos - 1;
 
@@ -100,14 +96,14 @@ var ScrollLogic;
 		return 1 - Math.pow(2, -10 * p);
 	};
 
-	// Returns a new easing function which takes interval of a given easing function and scales it to [0, 1].
-	var createIntervalEase = function(ease, lower, upper) {
-		return function(p) {
-			p = (p * (upper - lower)) + lower;
+	var easeOutBack = function(pos) {
+		var s = EDGE_RESISTANCE;
 
-			return ease(p);
-		};
+		pos = pos - 1;
+
+		return (pos * pos * ((s + 1) * pos + s) + 1);
 	};
+
 
 	var members = {
 
@@ -239,14 +235,7 @@ var ScrollLogic;
 				if(percentage >= 1) {
 					this.__scrollOffset = animation.from + animation.distance;
 					this.__scrollingComplete = true;
-
-					// Is there another animation in the queue?
-					if(animation.next) {
-						this.__animation = animation.next;
-						return this.getOffset();
-					} else {
-						this.__animation = null;
-					}
+					this.__animation = null;
 				}
 				//The animation is still running, calculate the current position.
 				else {
@@ -591,7 +580,8 @@ var ScrollLogic;
 			// This formula simply means that we add up the decelarating velocity (or the distance) every frame until we reach MIN_VELOCITY_BEFORE_TERMINATING.
 			var distance = self.__decelerationVelocity * ((1 - Math.pow(FRICTION_PER_FRAME, durationInFrames)) / (1 - FRICTION_PER_FRAME));
 
-			var newOffset = self.__scrollOffset + distance;
+			var offset = self.__scrollOffset;
+			var newOffset = offset + distance;
 			var distanceFromBounds;
 
 			var animation = self.__animation = {
@@ -606,23 +596,13 @@ var ScrollLogic;
 
 			if(self.options.bouncing && overscrolled) {
 				if(newOffset < 0) {
-					distanceFromBounds = -newOffset;
+					animation.distance = -offset;
 				} else {
-					distanceFromBounds = self.__maxScrollOffset - newOffset;
+					animation.distance = self.__maxScrollOffset - offset;
 				}
 
-				// Use a more "agressive" easing when overscrolling, because it should stop quicker due to resistance.
-				animation.duration -= 600;
-				animation.easing = easeOutQuad;
-
-				// When this animation is done, we are overscrolled and need to snap back to the bounds.
-				animation.next = {
-					start: animation.start + animation.duration,
-					duration: 600,
-					easing: easeOutQuad,
-					from: newOffset,
-					distance: distanceFromBounds
-				};
+				animation.easing = easeOutBack;
+				animation.duration = animation.duration / EDGE_RESISTANCE;
 			}
 
 		},
