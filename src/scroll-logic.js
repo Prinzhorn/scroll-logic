@@ -5,15 +5,13 @@
  * Copyright 2011, Zynga Inc.
  * Modifications by Alexander Prinzhorn (@Prinzhorn)
  * Licensed under the MIT License.
- * https://raw.github.com/zynga/scroller/master/MIT-LICENSE.txt
+ * https://github.com/Prinzhorn/scroll-logic/blob/master/LICENSE.txt
  *
  * Based on the work of: Unify Project (unify-project.org)
  * http://unify-project.org
  * Copyright 2011, Deutsche Telekom AG
  * License: MIT + Apache (V2)
  */
-
-var ScrollLogic;
 
 (function() {
 	// How much velocity is required to start the deceleration.
@@ -39,7 +37,7 @@ var ScrollLogic;
 	/**
 	 * A pure logic 'component' for 'virtual' scrolling.
 	 */
-	ScrollLogic = function(options) {
+	var ScrollLogic = function(options) {
 		this.options = {
 
 			/** Enable animations for deceleration, snap back and scrolling */
@@ -49,13 +47,7 @@ var ScrollLogic;
 			animationDuration: 250,
 
 			/** Enable bouncing (content can be slowly moved outside and jumps back after releasing) */
-			bouncing: true,
-
-			/** This configures the amount of change applied to deceleration when reaching boundaries  **/
-			penetrationDeceleration : 0.03,//This is basically the same as the 0.95 per frame, but twice!
-
-			/** This configures the amount of change applied to acceleration when reaching boundaries  **/
-			penetrationAcceleration : 0.08
+			bouncing: true
 
 		};
 
@@ -113,30 +105,14 @@ var ScrollLogic;
 		---------------------------------------------------------------------------
 		*/
 
-		/** {Boolean} Whether a touch event sequence is in progress */
+		// Whether a touch event sequence is in progress.
 		__isInteracting: false,
 
-		/** {Boolean} Whether a deceleration animation went to completion. */
-		__didDecelerationComplete: false,
-
-
-		/** {Boolean} Whether scrolling is currently done and not doing anything. */
-		__scrollingComplete: true,
-
-
-		/**
-		 * {Boolean} Whether the user has moved by such a distance that we have enabled
-		 * dragging mode. Hint: It's only enabled after some pixels of movement to
-		 * not interrupt with clicks etc.
-		 */
+		// Whether the user has moved by such a distance that we have enabled dragging mode.
 		__isDragging: false,
 
-		/**
-		 * {Object} Smoothly animating the currently configured change.
-		 * Contains the configuration of the animation.
-		 */
+		// Contains the animation configuration, if one is running.
 		__animation: null,
-
 
 
 		/*
@@ -174,17 +150,6 @@ var ScrollLogic;
 		__positions: null,
 
 
-
-		/*
-		---------------------------------------------------------------------------
-			INTERNAL FIELDS :: DECELERATION SUPPORT
-		---------------------------------------------------------------------------
-		*/
-
-		/** {Number} Current factor to modify scroll position with on every step */
-		__decelerationVelocity: null,
-
-
 		/*
 		---------------------------------------------------------------------------
 			PUBLIC API
@@ -214,6 +179,20 @@ var ScrollLogic;
 
 		},
 
+		setContainerLength: function(containerLength) {
+
+			var self = this;
+			self.setLengths(containerLength, self.__contentLength);
+
+		},
+
+		setContentLength: function(contentLength) {
+
+			var self = this;
+			self.setLengths(self.__containerLength, contentLength);
+
+		},
+
 
 		/**
 		 * Calculates and returns the current scroll position.
@@ -234,7 +213,6 @@ var ScrollLogic;
 				//The animation is finished by now, clear the animation and use the animation's target offset.
 				if(percentage >= 1) {
 					this.__scrollOffset = animation.from + animation.distance;
-					this.__scrollingComplete = true;
 					this.__animation = null;
 				}
 				//The animation is still running, calculate the current position.
@@ -265,26 +243,22 @@ var ScrollLogic;
 
 		/**
 		 * Returns the maximum scroll values
-		 *
-		 * @return {Map} `left` and `top` maximum scroll values
 		 */
 		getScrollMax: function() {
-
 			return this.__maxScrollOffset;
-
 		},
 
 
+		/**
+		 * Is scroll-logic currently doing anything?
+		 */
 		isResting: function() {
 			return !this.__isInteracting && !this.__animation;
 		},
 
 
 		/**
-		 * Scrolls to the given position. Respect limitations and snapping automatically.
-		 *
-		 * @param offset {Number} New scroll position.
-		 * @param animate {Boolean?false} Whether the scrolling should happen using an animation
+		 * Scrolls to the given position. Respects bounds automatically.
 		 */
 		scrollTo: function(offset, animate) {
 
@@ -310,13 +284,6 @@ var ScrollLogic;
 		},
 
 
-		/*
-		---------------------------------------------------------------------------
-			EVENT CALLBACKS
-		---------------------------------------------------------------------------
-		*/
-
-
 		/**
 		 * Begin a new interaction with the scroller.
 		 */
@@ -340,15 +307,11 @@ var ScrollLogic;
 			// Reset tracking flag
 			self.__isInteracting = true;
 
-			// Reset deceleration complete flag
-			self.__didDecelerationComplete = false;
-
 			// Dragging starts lazy with an offset
 			self.__isDragging = false;
 
 			// Clearing data structure
 			self.__positions = [];
-
 		},
 
 
@@ -486,20 +449,14 @@ var ScrollLogic;
 						var movedOffset = scrollOffset - positions[positionsIndexStart - 1];
 
 						// Based on 50ms compute the movement to apply for each render step
-						self.__decelerationVelocity = movedOffset / timeOffset * (1000 / 60);
+						var velocity = movedOffset / timeOffset * (1000 / 60);
 
 						// Verify that we have enough velocity to start deceleration
-						if (Math.abs(self.__decelerationVelocity) > MIN_VELOCITY_FOR_DECELERATION) {
-							self.__startDeceleration(timeStamp);
+						if (Math.abs(velocity) > MIN_VELOCITY_FOR_DECELERATION) {
+							self.__startDeceleration(velocity);
 						}
-					} else {
-						self.__scrollingComplete = true;
 					}
-
-				} else {
-					self.__scrollingComplete = true;
 				}
-
 			}
 
 			// Fully cleanup list
@@ -565,20 +522,20 @@ var ScrollLogic;
 		 * Called when a touch sequence end and the speed of the finger was high enough
 		 * to switch into deceleration mode.
 		 */
-		__startDeceleration: function() {
+		__startDeceleration: function(velocity) {
 
 			var self = this;
 
 			// Calculate the duration for the deceleration animation, which is a function of the start velocity.
 			// This formula simply means we apply FRICTION_PER_FRAME to the velocity every frame, until it is lower than MIN_VELOCITY_BEFORE_TERMINATING.
-			var durationInFrames = (Math.log(MIN_VELOCITY_BEFORE_TERMINATING) - Math.log(Math.abs(self.__decelerationVelocity))) / Math.log(FRICTION_PER_FRAME);
+			var durationInFrames = (Math.log(MIN_VELOCITY_BEFORE_TERMINATING) - Math.log(Math.abs(velocity))) / Math.log(FRICTION_PER_FRAME);
 			var duration = (durationInFrames / FPS) * 1000;
 
 			// Calculate the distance that the scroller will move during this duration.
 			// http://en.wikipedia.org/wiki/Geometric_series#Formula where N is the number of frames,
 			// because we terminate the series when the velocity drop below a minimum.
 			// This formula simply means that we add up the decelarating velocity (or the distance) every frame until we reach MIN_VELOCITY_BEFORE_TERMINATING.
-			var distance = self.__decelerationVelocity * ((1 - Math.pow(FRICTION_PER_FRAME, durationInFrames)) / (1 - FRICTION_PER_FRAME));
+			var distance = velocity * ((1 - Math.pow(FRICTION_PER_FRAME, durationInFrames)) / (1 - FRICTION_PER_FRAME));
 
 			var offset = self.__scrollOffset;
 			var newOffset = offset + distance;
@@ -604,70 +561,19 @@ var ScrollLogic;
 				animation.easing = easeOutBack;
 				animation.duration = animation.duration / EDGE_RESISTANCE;
 			}
-
-		},
-
-
-		/**
-		 * Called on every step of the animation
-		 *
-		 * @param inMemory {Boolean?false} Whether to not render the current step, but keep it in memory only. Used internally only!
-		 */
-		 /*
-		__stepThroughDeceleration: function(render) {
-
-			var self = this;
-
-			// Add deceleration to scroll position
-			var scrollOffset = self.__scrollOffset + self.__decelerationVelocity;
-
-			//
-			// SLOW DOWN
-			//
-
-			// This is the factor applied to every iteration of the animation
-			// to slow down the process. This should emulate natural behavior where
-			// objects slow down when the initiator of the movement is removed
-			var frictionFactor = 0.95;
-
-			self.__decelerationVelocity *= frictionFactor;
-
-			//
-			// BOUNCING SUPPORT
-			//
-
-			if (self.options.bouncing) {
-
-				var scrollOutside = 0;
-
-				// This configures the amount of change applied to deceleration/acceleration when reaching boundaries
-				var penetrationDeceleration = self.options.penetrationDeceleration;
-				var penetrationAcceleration = self.options.penetrationAcceleration;
-
-				// Check limits
-				if (scrollOffset < 0) {
-					scrollOutside = -scrollOffset;
-				} else if (scrollOffset > self.__maxScrollOffset) {
-					scrollOutside = self.__maxScrollOffset - scrollOffset;
-				}
-
-				// Slow down until slow enough, then flip back to snap position
-				if (scrollOutside !== 0) {
-					if (scrollOutside * self.__decelerationVelocity <= 0) {
-						// Applying penetrationDeceleration here is basically the same as doing twice the deceleration at once.
-						self.__decelerationVelocity = self.__decelerationVelocity + scrollOutside * penetrationDeceleration;
-					} else {
-						self.__decelerationVelocity = scrollOutside * penetrationAcceleration;
-					}
-				}
-			}
 		}
-		*/
 	};
 
-	// Copy over members to prototype
-	for (var key in members) {
+	// Copy over members to prototype.
+	for(var key in members) {
 		ScrollLogic.prototype[key] = members[key];
 	}
 
+	if(typeof exports !== 'undefined') {
+		if(typeof module !== 'undefined' && module.exports) {
+			exports = module.exports = ScrollLogic;
+		}
+	} else {
+		window.ScrollLogic = ScrollLogic;
+	}
 })();
