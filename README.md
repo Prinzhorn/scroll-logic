@@ -39,7 +39,4 @@ scrollLogic.interact(offset, timestamp);
 
 //Ends the current interaction. Usually this would be called on `touchend` or `touchcancel`.
 scrollLogic.endInteraction(offset, timestamp);
-
-//Cancels the current interaction. This is different from `endInteraction` since it does not trigger decelerated motion, it just stops.
-scrollLogic.cancelInteraction();
 ```
