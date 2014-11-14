@@ -19,8 +19,6 @@ var scrollLogic = new ScrollLogic({
 	contentLength: 23000
 });
 
-scrollLogic.setBouncing(true);
-
 //Set the length of the container and the scrollable content in pixels. ScrollLogic doesn't care if you do vertical or horizontal scrolling.
 scrollLogic.setContainerLength(containerLength);
 scrollLogic.setContentLength(contentLength);
