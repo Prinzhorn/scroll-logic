@@ -1,0 +1,22 @@
+{
+  "name": "scroll-logic",
+  "version": "1.0.0",
+  "description": "A pure logic component for one-axis decelerated scrolling",
+  "main": "src/scroll-logic.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Prinzhorn/scroll-logic.git"
+  },
+  "keywords": [
+    "scrolling"
+  ],
+  "author": "Alexander Prinzhorn",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Prinzhorn/scroll-logic/issues"
+  },
+  "homepage": "https://github.com/Prinzhorn/scroll-logic"
+}
