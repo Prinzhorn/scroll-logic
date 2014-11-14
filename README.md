@@ -19,21 +19,26 @@ var scrollLogic = new ScrollLogic({
 	contentLength: 23000
 });
 
-//Set the length of the container and the scrollable content in pixels. ScrollLogic doesn't care if you do vertical or horizontal scrolling.
+//Set the length of the container and the scrollable content in pixels.
+//ScrollLogic doesn't care if you do vertical or horizontal scrolling.
 scrollLogic.setContainerLength(containerLength);
 scrollLogic.setContentLength(contentLength);
 
-//Get the scroll offset as integer. Can be negative or larger than (contentLength - containerLength) if bouncing is enabled.
+//Get the scroll offset as integer.
+//Can be negative or larger than (contentLength - containerLength) if bouncing is enabled.
 //ScrollLogic doesn't do ANYTHING unless you query the offset. There's no animation loop or any computation going on.
 var offset = scrollLogic.getOffset();
 
-//Stop any deceleration that may be "running" and jump to the new position. The next `getOffset` call will return this position.
+//Stop any deceleration that may be "running" and jump to the new position.
+//The next `getOffset` call will return this position.
 scrollLogic.setOffset(newOffset);
 
-//Start a new interaction with the scrollable content. Usually this would be called on `touchstart`.
+//Start a new interaction with the scrollable content.
+//Usually this would be called on `touchstart`.
 scrollLogic.beginInteraction(offset, timestamp);
 
-//Once you've started a new interaction, you can add interactions. Usually this would be called on `touchmove`.
+//Once you've started a new interaction, you can add interactions.
+//Usually this would be called on `touchmove`.
 //This is a noop if there is no active interaction created using beginInteraction.
 scrollLogic.interact(offset, timestamp);
 
