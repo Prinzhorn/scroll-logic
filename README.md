@@ -9,6 +9,8 @@ It's a pure logic component for one-axis decelerated scrolling, imitating the wa
 Usage
 -----
 
+`npm install scroll-logic` for usage with browserify or use the `window.ScrollLogic` global.
+
 ```js
 var scrollLogic = new ScrollLogic({
 	//true by default.
