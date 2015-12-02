@@ -1,6 +1,6 @@
 {
   "name": "scroll-logic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A pure logic component for one-axis decelerated scrolling",
   "main": "src/scroll-logic.js",
   "scripts": {
