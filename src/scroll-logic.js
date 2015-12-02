@@ -168,8 +168,16 @@
 
 			var self = this;
 
-			self.__containerLength = (containerLength + 0.5) | 0;
-			self.__contentLength = (contentLength + 0.5) | 0;
+			containerLength = Math.round(containerLength);
+			contentLength = Math.round(contentLength);
+
+			// Do nothing when the lengths are the same
+			if(containerLength === self.__containerLength && contentLength === self.__contentLength) {
+				return;
+			}
+
+			self.__containerLength = containerLength;
+			self.__contentLength = contentLength;
 
 			// Refresh maximums
 			self.__maxScrollOffset = Math.max(contentLength - containerLength, 0);
